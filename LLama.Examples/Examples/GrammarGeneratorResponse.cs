@@ -10,8 +10,8 @@ namespace LLama.Examples.Examples
         {
             string modelPath = UserSettings.GetModelPath();
 
-            var gbnf = (await File.ReadAllTextAsync("Assets/json.gbnf")).Trim();
-            //var gbnf = GBNFGrammarGenerator.GenerateFromClass(typeof(GrammarGeneratorResponseExample));
+            //var gbnf = (await File.ReadAllTextAsync("Assets/json.gbnf")).Trim();
+            var gbnf = GBNFGrammarGenerator.GenerateFromClass(typeof(GrammarGeneratorResponseExample));
             
             // // Log the generated GBNF
             Console.WriteLine("Generated GBNF:");
