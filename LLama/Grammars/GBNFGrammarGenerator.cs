@@ -6,7 +6,7 @@ using System.Text;
 namespace LLama.Grammars
 {
     internal sealed class GBNFGrammarGenerator
-    
+    {
         // Converts a class to a GBNF grammar
         public string GenerateFromClass(Type type)
         {
