@@ -28,10 +28,6 @@ namespace LLama.Examples.Examples
             using var model = await LLamaWeights.LoadFromFileAsync(parameters);
             var ex = new StatelessExecutor(model, parameters);
 
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("The executor has been enabled. In this example, the LLM will follow your instructions and always respond in a JSON format. For example, you can input \"Tell me the attributes of a good dish\"");
-            Console.ForegroundColor = ConsoleColor.White;
-
             using var grammarInstance = grammar.CreateInstance();
             var inferenceParams = new InferenceParams()
             {
@@ -52,6 +48,12 @@ namespace LLama.Examples.Examples
             {
                 Console.Write(text);
             }
+            
+            // Change the color back to green
+            Console.ForegroundColor = ConsoleColor.Green;
+            
+            // Write newline
+            Console.WriteLine("\n");
         }
     }
 }
