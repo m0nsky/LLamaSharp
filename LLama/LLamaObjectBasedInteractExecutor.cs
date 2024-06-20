@@ -38,7 +38,7 @@ public class ObjectBasedExecutor : InteractiveExecutor
     // 3. Every loop, the result is appended to a StringBuilder, and we try to parse the latest state using JsonRepair
     // 4. If the parsing is successful, we yield return the parsed object.
     // 5. If the parsing fails, we continue the loop.
-    public async IAsyncEnumerable<T?> InferObjectAsync<T>(T inputObj, T outputObj, IInferenceParams? inferenceParams = null, CancellationToken token = default)
+    public async IAsyncEnumerable<TOut?> InferObjectAsync<TIn, TOut>(TIn inputObj, TOut outputObj, IInferenceParams? inferenceParams = null, CancellationToken token = default)
     {
         // Generate grammar for the output object
         var gbnf = GBNFGrammarGenerator.GenerateFromClass(outputObj.GetType());
@@ -71,7 +71,7 @@ public class ObjectBasedExecutor : InteractiveExecutor
             sb.Append(response);
             string repaired = "";
 
-            T? parsed = default;
+            TOut? parsed = default;
             
             // Log sb.ToString()
             //Console.WriteLine(sb.ToString());
@@ -83,7 +83,7 @@ public class ObjectBasedExecutor : InteractiveExecutor
                 //repaired = sb.ToString();
                 
                 // Parse the repaired json
-                parsed = JsonConvert.DeserializeObject<T>(repaired);
+                parsed = JsonConvert.DeserializeObject<TOut>(repaired);
                 
             }
             catch

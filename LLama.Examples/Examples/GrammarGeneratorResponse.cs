@@ -26,11 +26,11 @@ namespace LLama.Examples.Examples
             var executor = new ObjectBasedExecutor(context);
             
             // Create a sample input object
-            ExampleObject inputObject = new ExampleObject();
-            inputObject.Message = "Do you like pizza?";
+            ExampleInputObject inputObject = new ExampleInputObject();
+            inputObject.Question = "Do you like pizza?";
             
             // Create a sample output object
-            ExampleObject outputObject = new ExampleObject();
+            ExampleOutputObject outputObject = new ExampleOutputObject();
             
             // Infer the object
             await foreach (var obj in executor.InferObjectAsync(inputObject, outputObject))
