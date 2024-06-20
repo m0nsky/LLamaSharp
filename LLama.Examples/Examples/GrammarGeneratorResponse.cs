@@ -1,6 +1,8 @@
 ﻿using System.Reflection;
+using JsonRepairSharp;
 using LLama.Common;
 using LLama.Grammars;
+using Newtonsoft.Json;
 
 namespace LLama.Examples.Examples
 {
@@ -10,50 +12,38 @@ namespace LLama.Examples.Examples
         {
             string modelPath = UserSettings.GetModelPath();
 
-            //var gbnf = (await File.ReadAllTextAsync("Assets/json.gbnf")).Trim();
-            var gbnf = GBNFGrammarGenerator.GenerateFromClass(typeof(GrammarGeneratorResponseExample));
-            
-            // // Log the generated GBNF
-            Console.WriteLine("Generated GBNF:");
-            Console.WriteLine(gbnf);
-            
-            var grammar = Grammar.Parse(gbnf, "root");
-
             var parameters = new ModelParams(modelPath)
             {
                 Seed = 1337,
-                GpuLayerCount = 5
+                GpuLayerCount = 16
             };
             
             using var model = await LLamaWeights.LoadFromFileAsync(parameters);
-            var ex = new StatelessExecutor(model, parameters);
-
-            using var grammarInstance = grammar.CreateInstance();
-            var inferenceParams = new InferenceParams()
+            
+            // Create a new object based executor
+            using var context = model.CreateContext(parameters);
+            var executor = new ObjectBasedExecutor(context);
+            
+            // Create a sample input object
+            ExampleObject inputObject = new ExampleObject();
+            inputObject.Message = "Do you like pizza?";
+            inputObject.Mood = "happy";
+            
+            // Create a sample output object
+            ExampleObject outputObject = new ExampleObject();
+            
+            // Infer the object
+            await foreach (var obj in executor.InferObjectAsync(inputObject, outputObject))
             {
-                Temperature = 0.6f,
-                AntiPrompts = new List<string> { "User:", "User: " },
-                MaxTokens = 50,
-                Grammar = grammarInstance
-            };
-
-            Console.ForegroundColor = ConsoleColor.Green;
+                // Clear the console
+                Console.Clear();
                 
-            string prompt = "User: I gave you a cookie.\n\nPlease respond in JSON format with your reply, mood, and intent:";
-            Console.WriteLine(prompt);
+                // Writeline test
+                Console.WriteLine("Inferred object:");
                 
-            Console.ForegroundColor = ConsoleColor.White;
-
-            await foreach (var text in ex.InferAsync(prompt, inferenceParams))
-            {
-                Console.Write(text);
+                // Convert the object to json and write it to the console
+                Console.WriteLine(JsonConvert.SerializeObject(obj, Formatting.Indented));
             }
-            
-            // Change the color back to green
-            Console.ForegroundColor = ConsoleColor.Green;
-            
-            // Write newline
-            Console.WriteLine("\n");
         }
     }
 }
