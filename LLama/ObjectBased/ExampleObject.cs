@@ -2,9 +2,18 @@
 
 public class ExampleObject
 {
-    // String message
+    // Message
     public string Message = "";
     
-    // String mood
-    public string Mood = "";
+    // Mood
+    public Mood Mood = Mood.Happy;
+}
+
+// Mood enum
+public enum Mood
+{
+    Happy,
+    Sad,
+    Angry,
+    Excited
 }

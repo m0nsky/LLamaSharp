@@ -3,6 +3,7 @@ using JsonRepairSharp;
 using LLama.Common;
 using LLama.Grammars;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace LLama.Examples.Examples
 {
@@ -27,7 +28,6 @@ namespace LLama.Examples.Examples
             // Create a sample input object
             ExampleObject inputObject = new ExampleObject();
             inputObject.Message = "Do you like pizza?";
-            inputObject.Mood = "happy";
             
             // Create a sample output object
             ExampleObject outputObject = new ExampleObject();
@@ -38,11 +38,28 @@ namespace LLama.Examples.Examples
                 // Clear the console
                 Console.Clear();
                 
-                // Writeline test
-                Console.WriteLine("Inferred object:");
+                // Set color to white
+                Console.ForegroundColor = ConsoleColor.White;
                 
-                // Convert the object to json and write it to the console
-                Console.WriteLine(JsonConvert.SerializeObject(obj, Formatting.Indented));
+                // Write the prompt to the console
+                Console.WriteLine("[InputObject]");
+                
+                // Convert the input object to json and write it to the console
+                Console.WriteLine(JsonConvert.SerializeObject(inputObject, Formatting.Indented));
+                
+                // Newline
+                Console.WriteLine();
+                
+                // Set color to yellow
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                
+                // Write the prompt to the console
+                Console.WriteLine("[OutputObject]");
+                
+                var settings = new JsonSerializerSettings();
+                settings.Converters.Add(new StringEnumConverter());
+                string json = JsonConvert.SerializeObject(obj, Formatting.Indented, settings);
+                Console.WriteLine(json);
             }
         }
     }
