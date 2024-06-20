@@ -1,0 +1,57 @@
+﻿using System.Reflection;
+using LLama.Common;
+using LLama.Grammars;
+
+namespace LLama.Examples.Examples
+{
+    public class GrammarGeneratorResponse
+    {
+        public static async Task Run()
+        {
+            string modelPath = UserSettings.GetModelPath();
+
+            var gbnf = (await File.ReadAllTextAsync("Assets/json.gbnf")).Trim();
+            //var gbnf = GBNFGrammarGenerator.GenerateFromClass(typeof(GrammarGeneratorResponseExample));
+            
+            // // Log the generated GBNF
+            Console.WriteLine("Generated GBNF:");
+            Console.WriteLine(gbnf);
+            
+            var grammar = Grammar.Parse(gbnf, "root");
+
+            var parameters = new ModelParams(modelPath)
+            {
+                Seed = 1337,
+                GpuLayerCount = 5
+            };
+            
+            using var model = await LLamaWeights.LoadFromFileAsync(parameters);
+            var ex = new StatelessExecutor(model, parameters);
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("The executor has been enabled. In this example, the LLM will follow your instructions and always respond in a JSON format. For example, you can input \"Tell me the attributes of a good dish\"");
+            Console.ForegroundColor = ConsoleColor.White;
+
+            using var grammarInstance = grammar.CreateInstance();
+            var inferenceParams = new InferenceParams()
+            {
+                Temperature = 0.6f,
+                AntiPrompts = new List<string> { "User:", "User: " },
+                MaxTokens = 50,
+                Grammar = grammarInstance
+            };
+
+            Console.ForegroundColor = ConsoleColor.Green;
+                
+            string prompt = "User: I gave you a cookie.\n\nPlease respond in JSON format with your reply, mood, and intent:";
+            Console.WriteLine(prompt);
+                
+            Console.ForegroundColor = ConsoleColor.White;
+
+            await foreach (var text in ex.InferAsync(prompt, inferenceParams))
+            {
+                Console.Write(text);
+            }
+        }
+    }
+}

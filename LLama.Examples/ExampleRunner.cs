@@ -22,6 +22,7 @@ public class ExampleRunner
         { "LLama Model: Get embeddings", () => Task.Run(GetEmbeddings.Run) },
         { "LLama Model: Quantize", () => Task.Run(QuantizeModel.Run) },
         { "Grammar: Constrain response to json format", GrammarJsonResponse.Run },
+        { "Grammar Generator: Constrain response to json generated from class", GrammarGeneratorResponse.Run },
         { "Kernel Memory: Document Q&A", KernelMemory.Run },
         { "Kernel Memory: Save and Load", KernelMemorySaveAndLoad.Run },
 		{ "Semantic Kernel: HomeAutomation", SemanticKernelHomeAutomation.Run },
