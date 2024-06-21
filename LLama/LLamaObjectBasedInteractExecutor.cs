@@ -66,6 +66,9 @@ public class ObjectBasedExecutor : InteractiveExecutor
         
         StringBuilder sb = new();
         
+        // Turn on LLM mode
+        JsonRepair.Context = JsonRepair.InputType.LLM;
+        
         await foreach (var response in InferAsync(json, inferenceParams, token))
         {
             sb.Append(response);

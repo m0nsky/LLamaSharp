@@ -16,7 +16,10 @@ namespace LLama.Examples.Examples
             var parameters = new ModelParams(modelPath)
             {
                 Seed = 1337,
-                GpuLayerCount = 16
+                GpuLayerCount = 32,
+                Threads = 6,
+                BatchThreads = 6,
+                BatchSize = 2048
             };
             
             using var model = await LLamaWeights.LoadFromFileAsync(parameters);
