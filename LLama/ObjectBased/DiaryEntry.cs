@@ -12,5 +12,5 @@ public class DiaryEntry
     public Mood Mood;
     
     // Array "lucky numbers for the day"
-    public int[] LuckyNumbersForTheDay;
+    //public int[] LuckyNumbersForTheDay;
 }

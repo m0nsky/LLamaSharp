@@ -288,22 +288,20 @@ namespace LLama.Grammars
                     // Log and wait for readline
                     Console.WriteLine($"Generating rule for {elementType.Name}");
                     
+                    // Log the namespace of the element type
+                    Console.WriteLine(elementType.Namespace);
+                    
                     // Wait for readline
                     Console.ReadLine();
                     
-                    string rule = $"{member.Name}::={memberType.Name}\n";
-                    string classRules;
-                    
-                    // Generate the rules for the type
-                    classRules = GenerateFromType(elementType, false);
-                    
-                    // Return the combined rules
-                    string fullRules = rule + classRules;
+                    // Generate the rule for the element type
+                    string elementRule = GenerateFromType(elementType, false);
                     
                     // Add the rule to the known rules
-                    //_knownRules.Add(elementType, new GBNFGrammarRule(elementType.Name, fullRules));
+                    _knownRules.Add(elementType, new GBNFGrammarRule(elementType.Name, elementRule));
                     
-                    return $"{member.Name}::=\"[\"({elementType.Name}(\",\"{elementType.Name})*)?\"]\"\n";
+                    // Generate the array rule
+                    return $"{member.Name}::=\"[\"({elementRule}(\",\"{elementRule})*)?\"]\"\n";
                 }
             }
             else
@@ -335,6 +333,9 @@ namespace LLama.Grammars
                     // Generate the rules for the existing instance
                     classRules = GenerateFromObject(defaultValue, false);
                 }
+                
+                // Add the rule to the known rules
+                _knownRules.Add(memberType, new GBNFGrammarRule(memberType.Name, classRules));
 
                 // Return the combined rules
                 return rule + classRules;
