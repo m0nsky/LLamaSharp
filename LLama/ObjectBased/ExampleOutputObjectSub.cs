@@ -9,11 +9,17 @@ public class ExampleOutputObjectSub
     public string LastName = "";
     
     // Integer age
-    public int Age = 0;
+    public int Age = 20;
     
     // Most recent diary entry
-    public DiaryEntry MostRecentDiaryEntry = new DiaryEntry();
-    //
-    // // Other diary entries (array)
-    // public DiaryEntry[] PreviousDiaryEntries;
+    public DiaryEntry MostRecentDiaryEntry;
+
+    // Other diary entries (array)
+    public int[] FavoriteNumbers;
+    
+    // Other diary entries (array)
+    public int[] LeastFavoriteNumbers;
+    
+    // Other diary entries (array)
+    //public DiaryEntry[] PreviousDiaryEntries;
 }

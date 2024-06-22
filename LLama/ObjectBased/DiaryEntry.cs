@@ -1,11 +1,5 @@
 ﻿namespace JsonRepairSharp;
 
-public class Diary
-{
-    // Diary entries
-    public DiaryEntry[] Entries;
-}
-
 public class DiaryEntry
 {
     // Date
