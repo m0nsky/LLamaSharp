@@ -154,6 +154,11 @@ namespace LLama.Grammars
             {
                 rule = $"{property.Name}::=boolean\n";
             }
+            else if (propertyType.IsArray)
+            {
+                // Generate the rule for the array field
+                rule = $"{propertyType.Name}::=array\n";
+            }
             else if (propertyType.IsEnum)
             {
                 // Get the enum values

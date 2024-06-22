@@ -9,7 +9,7 @@ public class ExampleOutputObject
     public string FavoritePizza = "";
     
     // Favorite toppings
-    public string[] FavoriteToppings = new string[0];
+    public string[] FavoriteToppings;
     
     // Mood private
     private Mood mood = Mood.Angry;
