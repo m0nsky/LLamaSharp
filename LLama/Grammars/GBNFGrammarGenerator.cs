@@ -44,11 +44,6 @@ namespace LLama.Grammars
                 "double", 
                 "[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n")
             );
-            
-            _knownRules.Add(typeof(Array), new GBNFGrammarRule(
-                "array", 
-                "\"[\"(value(\",\"value)*)?\"]\"\n")
-            );
         }
         
         // Converts an object to a GBNF grammar
@@ -56,19 +51,6 @@ namespace LLama.Grammars
         {
             // Create a string builder to store the GBNF rules
             StringBuilder gbnf = new StringBuilder();
-            
-            // If this is the root node, we will add the common rules
-            if (isRoot)
-            {
-                // Add the common rules
-                foreach (var knownRule in _knownRules)
-                {
-                    gbnf.Append(knownRule.Value);
-                }
-                
-                // Value rule for "generic" arrays (this will be removed in the future, because we only support arrays of specific types)
-                gbnf.Append("value::=string|int|uint|float|double|boolean|array\n");
-            }
             
             // Get the type of the object
             Type type = obj.GetType();
@@ -120,6 +102,19 @@ namespace LLama.Grammars
 
             // Combine the root rule and the property rules
             gbnf.Insert(0, objectRule);
+            
+            // If this is the root node, we will add the common rules
+            if (isRoot)
+            {
+                // Add the common rules
+                foreach (var knownRule in _knownRules)
+                {
+                    gbnf.Append(knownRule.Value);
+                }
+                
+                // Value rule for "generic" arrays (this will be removed in the future, because we only support arrays of specific types)
+                //gbnf.Append("value::=string|int|uint|float|double|boolean|array\n");
+            }
             
             // Clear console
             Console.Clear();
@@ -184,7 +179,36 @@ namespace LLama.Grammars
             }
             else if (memberType.IsArray)
             {
-                return $"{member.Name}::=array\n";
+                // Now, we have to generate an array rule.
+                // Array rules look like this : "\"[\"(Type(\",\"Type)*)?\"]\"\n"
+                // We first need to get the type of the array elements, then look for it in our known types
+                // If it's already in our known types, we get it from there and get the Name from it, so it will become Name + Array (e.g. stringArray)
+                // If it's not in our known types, we generate a rule for it and add it to the known types
+                // Then we generate the array rule and return it
+                
+                // Get the type of the array elements
+                Type elementType = memberType.GetElementType();
+                
+                // Check if the element type is a known type
+                if (_knownRules.ContainsKey(elementType))
+                {
+                    // Get the known rule
+                    GBNFGrammarRule knownRule = _knownRules[elementType];
+                    
+                    // Generate the array rule
+                    return $"{member.Name}::=\"[\"({knownRule.Name}(\",\"{knownRule.Name})*)?\"]\"\n";
+                }
+                else
+                {
+                    // Generate a rule for the element type
+                    string elementRule = GenerateRuleForMember(member, null);
+                    
+                    // Add the rule to the known rules
+                    _knownRules.Add(elementType, new GBNFGrammarRule(elementType.Name, elementRule));
+                    
+                    // Generate the array rule
+                    return $"{member.Name}::=\"[\"({elementRule}(\",\"{elementRule})*)?\"]\"\n";
+                }
             }
             else
             {
