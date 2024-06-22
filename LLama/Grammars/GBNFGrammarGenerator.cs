@@ -79,6 +79,16 @@ namespace LLama.Grammars
             // Get all properties
             memberInfos.AddRange(type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
             
+            // If this is the root node, we will add the common rules
+            if (isRoot)
+            {
+                // Add the common rules
+                foreach (var knownRule in _knownRules)
+                {
+                    gbnf.Append(knownRule.Value);
+                }
+            }
+            
             // Create a GBNF rule for each member
             foreach (MemberInfo memberInfo in memberInfos)
             {
@@ -105,16 +115,6 @@ namespace LLama.Grammars
 
             // Combine the root rule and the property rules
             gbnf.Insert(0, objectRule);
-            
-            // If this is the root node, we will add the common rules
-            if (isRoot)
-            {
-                // Add the common rules
-                foreach (var knownRule in _knownRules)
-                {
-                    gbnf.Append(knownRule.Value);
-                }
-            }
             
             // Clear console
             Console.Clear();
