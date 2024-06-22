@@ -9,5 +9,5 @@ public class DiaryEntry
     public string Entry = "";
     
     // Mood
-    public Mood Mood = Mood.Happy;
+    public Mood Mood = Mood;
 }

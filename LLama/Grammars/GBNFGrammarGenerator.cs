@@ -11,6 +11,9 @@ namespace LLama.Grammars
         // Known rules (dictionary: key = type, value = rule)
         private readonly Dictionary<Type, GBNFGrammarRule> _knownRules = new();
         
+        // Default value mode
+        public DefaultValueMode DefaultValueMode { get; set; } = DefaultValueMode.Discard;
+        
         // Initialize common rules
         public GBNFGrammarGenerator()
         {
@@ -288,14 +291,19 @@ namespace LLama.Grammars
                     // Wait for readline
                     Console.ReadLine();
                     
-                    // Generate a rule for the element type TODO : this calls itself.. obviously..
-                    string elementRule = GenerateRuleForMember(member, null);
+                    string rule = $"{member.Name}::={memberType.Name}\n";
+                    string classRules;
+                    
+                    // Generate the rules for the type
+                    classRules = GenerateFromType(elementType, false);
+                    
+                    // Return the combined rules
+                    string fullRules = rule + classRules;
                     
                     // Add the rule to the known rules
-                    _knownRules.Add(elementType, new GBNFGrammarRule(elementType.Name, elementRule));
+                    //_knownRules.Add(elementType, new GBNFGrammarRule(elementType.Name, fullRules));
                     
-                    // Generate the array rule
-                    return $"{member.Name}::=\"[\"({elementRule}(\",\"{elementRule})*)?\"]\"\n";
+                    return $"{member.Name}::=\"[\"({elementType.Name}(\",\"{elementType.Name})*)?\"]\"\n";
                 }
             }
             else
@@ -332,6 +340,14 @@ namespace LLama.Grammars
                 return rule + classRules;
             }
         }
+    }
+    
+    // Default value mode enum (discard, overwrite or completion)
+    public enum DefaultValueMode
+    {
+        Discard,
+        Overwrite,
+        Completion
     }
 }
 
