@@ -6,7 +6,10 @@ namespace JsonRepairSharp;
 public class ExampleOutputObject
 {
     // Favorite pizza
-    public string FavoritePizza = "";
+    public string FavoritePizza;
+    
+    // Favorite pizza restaurant
+    public string FavoritePizzaRestaurant = "Pizzeria Delizia";
     
     // Favorite toppings
     public bool[] FavoriteToppings;
@@ -65,7 +68,7 @@ public class ExampleOutputObject
     // }
     
     // ExampleOutputObjectSub
-    public ExampleOutputObjectSub MessageAuthor = new ExampleOutputObjectSub();
+    //public ExampleOutputObjectSub MessageAuthor = new ExampleOutputObjectSub();
 }
 
 // Mood enum
