@@ -9,5 +9,8 @@ public class DiaryEntry
     public string Entry = "";
     
     // Mood
-    public Mood Mood = Mood;
+    public Mood Mood;
+    
+    // Array "lucky numbers for the day"
+    public int[] LuckyNumbersForTheDay;
 }
