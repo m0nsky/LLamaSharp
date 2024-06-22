@@ -9,25 +9,40 @@ namespace LLama.Grammars
     public sealed class GBNFGrammarGenerator
     {
         // Converts a class to a GBNF grammar
-        public static string GenerateFromClass(Type type)
+        public static string GenerateFromClass(Type type, bool isRoot = true)
         {
             // Create a string builder to store the GBNF rules
             StringBuilder gbnf = new StringBuilder();
 
-            // Add the common rules
-            gbnf.Append("string::=\"\\\"\"([^\\\"]*)\"\\\"\"\n");
-            gbnf.Append("boolean::=\"true\"|\"false\"\n");
-            gbnf.Append("int::=[-]?[0-9]+\n");
-            gbnf.Append("uint::=[0-9]+\n");
-            gbnf.Append("float::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n");
-            gbnf.Append("double::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n");
-            gbnf.Append("array::=\"[\"(value(\",\"value)*)?\"]\"\n");
+            if (isRoot)
+            {
+                // Add the common rules
+                gbnf.Append("string::=\"\\\"\"([^\\\"]*)\"\\\"\"\n");
+                gbnf.Append("boolean::=\"true\"|\"false\"\n");
+                gbnf.Append("int::=[-]?[0-9]+\n");
+                gbnf.Append("uint::=[0-9]+\n");
+                gbnf.Append("float::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n");
+                gbnf.Append("double::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n");
+                gbnf.Append("array::=\"[\"(value(\",\"value)*)?\"]\"\n");
 
-            // Now, we create the rule for "value", this can be any of the types we defined above
-            gbnf.Append("value::=string|int|uint|float|double|boolean|array\n");
+                // Now, we create the rule for "value", this can be any of the types we defined above
+                gbnf.Append("value::=string|int|uint|float|double|boolean|array\n");
+            }
 
+            string rootRule = "";
+            
             // Create the root rule
-            string rootRule = $"root::={type.Name}\n{type.Name}::=\"{{\"";
+            if (isRoot)
+            {
+                // We use "root" as the type name
+                rootRule += $"root::={type.Name}\n{type.Name}::=\"{{\"";
+            }
+            else
+            {
+                // We use the type name as the root rule
+                rootRule += $"{type.Name}::=\"{{\"";
+            }
+
             
             // Create a list to store all the members of the class
             List<MemberInfo> memberInfos = new List<MemberInfo>();
@@ -99,7 +114,7 @@ namespace LLama.Grammars
             string rule = $"{member.Name}::={memberType.Name}\n";
             
             // Generate the rules for the class
-            string classRules = GenerateFromClass(memberType);
+            string classRules = GenerateFromClass(memberType, false);
 
             // Return the combined rules
             return rule + classRules;
