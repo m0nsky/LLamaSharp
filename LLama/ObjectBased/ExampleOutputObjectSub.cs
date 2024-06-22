@@ -10,4 +10,10 @@ public class ExampleOutputObjectSub
     
     // Integer age
     public int Age = 0;
+    
+    // Most recent diary entry
+    public DiaryEntry MostRecentDiaryEntry = new DiaryEntry();
+    
+    // Other diary entries (array)
+    public DiaryEntry[] PreviousDiaryEntries;
 }
