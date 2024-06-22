@@ -9,7 +9,7 @@ public class ExampleOutputObject
     public string FavoritePizza = "";
     
     // Favorite toppings
-    public string[] FavoriteToppings;
+    public bool[] FavoriteToppings;
     
     // // Mood private
     // private Mood mood = Mood.Angry;

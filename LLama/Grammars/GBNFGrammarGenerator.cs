@@ -8,8 +8,34 @@ namespace LLama.Grammars
 {
     public sealed class GBNFGrammarGenerator
     {
+        // Known rules (dictionary: key = type, value = rule)
+        private readonly Dictionary<Type, string> _knownRules = new();
+        
+        // Initialize common rules
+        public GBNFGrammarGenerator()
+        {
+            // Add the common rules
+            _knownRules.Add(typeof(string), "string::=\"\\\"\"([^\\\"]*)\"\\\"\"\n");
+            _knownRules.Add(typeof(bool), "boolean::=\"true\"|\"false\"\n");
+            _knownRules.Add(typeof(int), "int::=[-]?[0-9]+\n");
+            _knownRules.Add(typeof(uint), "uint::=[0-9]+\n");
+            _knownRules.Add(typeof(float), "float::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n");
+            _knownRules.Add(typeof(double), "double::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n");
+            _knownRules.Add(typeof(Array), "array::=\"[\"(value(\",\"value)*)?\"]\"\n");
+        }
+        
+        // Converts an object to a GBNF grammar
+        public string GenerateFromObject(object obj)
+        {
+            // Get the type of the object
+            Type type = obj.GetType();
+            
+            // Generate the GBNF grammar from the class
+            return GenerateFromType(type);
+        }
+        
         // Converts a class to a GBNF grammar
-        public static string GenerateFromClass(Type type, bool isRoot = true)
+        public string GenerateFromType(Type type, bool isRoot = true)
         {
             // Create a string builder to store the GBNF rules
             StringBuilder gbnf = new StringBuilder();
@@ -17,15 +43,11 @@ namespace LLama.Grammars
             if (isRoot)
             {
                 // Add the common rules
-                gbnf.Append("string::=\"\\\"\"([^\\\"]*)\"\\\"\"\n");
-                gbnf.Append("boolean::=\"true\"|\"false\"\n");
-                gbnf.Append("int::=[-]?[0-9]+\n");
-                gbnf.Append("uint::=[0-9]+\n");
-                gbnf.Append("float::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n");
-                gbnf.Append("double::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n");
-                gbnf.Append("array::=\"[\"(value(\",\"value)*)?\"]\"\n");
-
-                // Now, we create the rule for "value", this can be any of the types we defined above
+                foreach (var knownRule in _knownRules)
+                {
+                    gbnf.Append(knownRule.Value);
+                }
+                
                 gbnf.Append("value::=string|int|uint|float|double|boolean|array\n");
             }
 
@@ -86,7 +108,7 @@ namespace LLama.Grammars
             return gbnf.ToString();
         }
 
-        private static string GenerateRuleForMember(MemberInfo member)
+        private string GenerateRuleForMember(MemberInfo member)
         {
             // Get the type of the member (field or property)
             Type memberType = member.MemberType == MemberTypes.Field
@@ -108,13 +130,13 @@ namespace LLama.Grammars
             };
         }
 
-        private static string GenerateComplexTypeRule(MemberInfo member, Type memberType)
+        private string GenerateComplexTypeRule(MemberInfo member, Type memberType)
         {
             // The member is not any of the known types, so we will generate a rule for its class (recursive)
             string rule = $"{member.Name}::={memberType.Name}\n";
             
             // Generate the rules for the class
-            string classRules = GenerateFromClass(memberType, false);
+            string classRules = GenerateFromType(memberType, false);
 
             // Return the combined rules
             return rule + classRules;

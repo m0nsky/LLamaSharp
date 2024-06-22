@@ -19,8 +19,11 @@ public class ObjectBasedExecutor : InteractiveExecutor
     // Infer Object Async
     public async IAsyncEnumerable<TOut?> InferObjectAsync<TIn, TOut>(TIn inputObj, TOut outputObj, IInferenceParams? inferenceParams = null, CancellationToken token = default)
     {
+        // Instantiate a new GBNFGrammarGenerator
+        GBNFGrammarGenerator grammarGenerator = new();
+        
         // Generate grammar for the output object
-        var gbnf = GBNFGrammarGenerator.GenerateFromClass(outputObj.GetType());
+        var gbnf = grammarGenerator.GenerateFromObject(outputObj);
         
         // Clear the console
         Console.Clear();
