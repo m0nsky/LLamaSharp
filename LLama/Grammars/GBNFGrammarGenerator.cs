@@ -60,6 +60,12 @@ namespace LLama.Grammars
 
             // Combine the root rule and the property rules
             gbnf.Insert(0, rootRule);
+            
+            // Clear console
+            Console.Clear();
+            
+            // Log the generated GBNF rules
+            Console.WriteLine(gbnf.ToString());
 
             // Return the GBNF rules as a string
             return gbnf.ToString();

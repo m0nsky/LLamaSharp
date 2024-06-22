@@ -22,6 +22,15 @@ public class ObjectBasedExecutor : InteractiveExecutor
         // Generate grammar for the output object
         var gbnf = GBNFGrammarGenerator.GenerateFromClass(outputObj.GetType());
         
+        // Clear the console
+        Console.Clear();
+        
+        // Log the generated grammar
+        Console.WriteLine(gbnf);
+        
+        // Wait for readline
+        Console.ReadLine();
+        
         // Parse the grammar
         var grammar = Grammar.Parse(gbnf, "root");
         
@@ -51,6 +60,12 @@ public class ObjectBasedExecutor : InteractiveExecutor
             
             try
             {
+                // Clear the console
+                Console.Clear();
+                
+                // Log the raw response
+                Console.WriteLine(fullResponse);
+                
                 // Now, we'll try to repair and parse the response into JSON thus far, and use the repaired JSON to populate the output object
                 JsonConvert.PopulateObject(JsonRepair.RepairJson(fullResponse.ToString()), outputObj);
             }

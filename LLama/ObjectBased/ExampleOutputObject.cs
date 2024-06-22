@@ -63,6 +63,9 @@ public class ExampleOutputObject
         // Log "answer changed"
         //Console.WriteLine("LLM modified the Answer property!");
     }
+    
+    // ExampleOutputObjectSub
+    public ExampleOutputObjectSub MessageAuthor = new ExampleOutputObjectSub();
 }
 
 // Mood enum
