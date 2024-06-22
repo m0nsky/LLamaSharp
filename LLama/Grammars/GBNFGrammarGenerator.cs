@@ -264,20 +264,25 @@ namespace LLama.Grammars
             }
             else
             {
-                return GenerateComplexTypeRule(member, memberType);
+                // The member is not any of the known types, so we will generate a rule for its class (recursive)
+                string rule = $"{member.Name}::={memberType.Name}\n";
+                string classRules;
+
+                if (defaultValue == null)
+                {
+                    // Generate the rules for the type
+                    classRules = GenerateFromType(memberType, false);
+                }
+                else
+                {
+                    // Generate the rules for the existing instance
+                    classRules = GenerateFromObject(defaultValue, false);
+                    
+                }
+
+                // Return the combined rules
+                return rule + classRules;
             }
-        }
-
-        private string GenerateComplexTypeRule(MemberInfo member, Type memberType)
-        {
-            // The member is not any of the known types, so we will generate a rule for its class (recursive)
-            string rule = $"{member.Name}::={memberType.Name}\n";
-            
-            // Generate the rules for the class
-            string classRules = GenerateFromType(memberType, false);
-
-            // Return the combined rules
-            return rule + classRules;
         }
     }
 }

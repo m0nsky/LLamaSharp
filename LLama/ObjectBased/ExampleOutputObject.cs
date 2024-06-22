@@ -68,7 +68,7 @@ public class ExampleOutputObject
     // }
     
     // ExampleOutputObjectSub
-    public ExampleOutputObjectSub MessageAuthor;
+    public ExampleOutputObjectSub MessageAuthor = new ExampleOutputObjectSub();
 }
 
 // Mood enum
