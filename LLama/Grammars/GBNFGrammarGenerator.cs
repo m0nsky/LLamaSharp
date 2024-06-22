@@ -20,6 +20,11 @@ namespace LLama.Grammars
             gbnf.Append("uint::=[0-9]+\n");
             gbnf.Append("float::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n");
             gbnf.Append("double::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n");
+
+            // Create the root rule
+            string rootRule = $"root::={type.Name}\n{type.Name}::=\"{{\"";
+            
+            // Process fields
             
             // Get the public fields of the class
             FieldInfo[] fields = type.GetFields();
@@ -33,9 +38,6 @@ namespace LLama.Grammars
                 // Append the rule to the GBNF rules
                 gbnf.Append(rule);
             }
-
-            // Create the root rule
-            string rootRule = $"root::={type.Name}\n{type.Name}::=\"{{\"";
             
             // Add the field names to the root rule
             int fieldCount = fields.Length;
@@ -55,14 +57,113 @@ namespace LLama.Grammars
                 }
             }
             
+            // Process properties
+            
+            // Get the public properties of the class
+            PropertyInfo[] properties = type.GetProperties();
+            
+            // Create a GBNF rule for each property
+            foreach (PropertyInfo property in properties)
+            {
+                // Generate the rule for the property
+                string rule = GenerateRuleForProperty(property);
+                
+                // Append the rule to the GBNF rules
+                gbnf.Append(rule);
+            }
+            
+            // Add the property names to the root rule
+            int propertyCount = properties.Length;
+            
+            for (int i = 0; i < propertyCount; i++)
+            {
+                // Get the property info
+                PropertyInfo property = properties[i];
+                
+                // Add the property name to the root rule
+                rootRule += $"\"\\\"{property.Name}\\\":\"{property.Name}";
+                
+                // Add a comma if it's not the last property
+                if (i < propertyCount - 1)
+                {
+                    rootRule += "\",\"";
+                }
+            }
+            
             // Close the root rule
             rootRule += "\"}\"\n";
 
             // Combine the root rule and the property rules
             gbnf.Insert(0, rootRule);
+            
+            // // Clear the console
+            // Console.Clear();
+            //
+            // // Log the generated GBNF rules
+            // Console.WriteLine(gbnf.ToString());
+            //
+            // // Wait for the user to press a key
+            // Console.ReadLine();
 
             // Return the GBNF rules as a string
             return gbnf.ToString();
+        }
+        
+        private static string GenerateRuleForProperty(PropertyInfo property)
+        {
+            // Create an empty string that will hold the generated rule
+            string rule = "";
+            
+            // Get the property type
+            Type propertyType = property.PropertyType;
+            
+            // We will generate a rule based on the property type
+            if (propertyType == typeof(string))
+            {
+                rule = $"{property.Name}::=string\n";
+            }
+            else if (propertyType == typeof(int))
+            {
+                rule = $"{property.Name}::=int\n";
+            }
+            else if (propertyType == typeof(uint))
+            {
+                rule = $"{property.Name}::=uint\n";
+            }
+            else if (propertyType == typeof(float))
+            {
+                rule = $"{property.Name}::=float\n";
+            }
+            else if (propertyType == typeof(double))
+            {
+                rule = $"{property.Name}::=double\n";
+            }
+            else if (propertyType == typeof(bool))
+            {
+                rule = $"{property.Name}::=boolean\n";
+            }
+            else if (propertyType.IsEnum)
+            {
+                // Get the enum values
+                var enumValues = Enum.GetNames(propertyType);
+                
+                // Generate the rule for the enum property
+                rule = $"{property.Name}::=" + string.Join("|", enumValues.Select(e => $"\"\\\"{e}\\\"\"")) + "\n";
+            }
+            else
+            {
+                // The property is not any of the known types, so we will generate a rule for it's class (recursive)
+                rule = $"{property.Name}::={propertyType.Name}\n";
+                
+                // Generate the rules for the class
+                string classRules = GenerateFromClass(propertyType);
+                
+                // Append the class rules to the generated rule
+                rule += classRules;
+            }
+
+            // Return the generated rule string
+            return rule;
         }
 
         private static string GenerateRuleForField(FieldInfo field)
@@ -108,8 +209,14 @@ namespace LLama.Grammars
             }
             else
             {
-                // Throw an exception if the field type is not supported
-                throw new NotSupportedException($"The field type '{fieldType.Name}' is not supported.");
+                // The field is not any of the known types, so we will generate a rule for it's class (recursive)
+                rule = $"{field.Name}::={fieldType.Name}\n";
+                
+                // Generate the rules for the class
+                string classRules = GenerateFromClass(fieldType);
+                
+                // Append the class rules to the generated rule
+                rule += classRules;
             }
 
             // Return the generated rule string

@@ -73,32 +73,33 @@ public class ObjectBasedExecutor : InteractiveExecutor
         {
             sb.Append(response);
             string repaired = "";
-
-            TOut? parsed = default;
             
             // Log sb.ToString()
             //Console.WriteLine(sb.ToString());
             
             try
             {
+                // // Clear the console
+                // Console.Clear();
+                //
+                // // Write the unrepaired json to the console
+                // Console.WriteLine(sb.ToString());
+                
                 // Try to repair the json
                 repaired = JsonRepair.RepairJson(sb.ToString());
                 //repaired = sb.ToString();
                 
                 // Parse the repaired json
-                parsed = JsonConvert.DeserializeObject<TOut>(repaired);
-                
+                //parsed = JsonConvert.DeserializeObject<TOut>(repaired);
+                JsonConvert.PopulateObject(repaired, outputObj);
+
             }
             catch
             {
                 continue;
             }
 
-            // If the parsed object isn't null, yield return it
-            if (parsed != null)
-            {
-                yield return parsed;
-            }
+            yield return outputObj;
         }
     }
 }

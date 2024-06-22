@@ -35,34 +35,41 @@ namespace LLama.Examples.Examples
             // Create a sample output object
             ExampleOutputObject outputObject = new ExampleOutputObject();
             
-            // Infer the object
-            await foreach (var obj in executor.InferObjectAsync(inputObject, outputObject))
+            // Create inference params
+            InferenceParams inferenceParams = new InferenceParams()
             {
-                // Clear the console
-                Console.Clear();
-                
-                // Set color to white
-                Console.ForegroundColor = ConsoleColor.White;
-                
-                // Write the prompt to the console
-                Console.WriteLine("[InputObject]");
-                
-                // Convert the input object to json and write it to the console
-                Console.WriteLine(JsonConvert.SerializeObject(inputObject, Formatting.Indented));
-                
-                // Newline
-                Console.WriteLine();
-                
-                // Set color to yellow
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                
-                // Write the prompt to the console
-                Console.WriteLine("[OutputObject]");
-                
-                var settings = new JsonSerializerSettings();
-                settings.Converters.Add(new StringEnumConverter());
-                string json = JsonConvert.SerializeObject(obj, Formatting.Indented, settings);
-                Console.WriteLine(json);
+                Temperature = 0.9f,
+                AntiPrompts = new List<string> { "\n\n" }
+            };
+            
+            // Infer the object
+            await foreach (var obj in executor.InferObjectAsync(inputObject, outputObject, inferenceParams))
+            {
+                // // Clear the console
+                // Console.Clear();
+                //
+                // // Set color to white
+                // Console.ForegroundColor = ConsoleColor.White;
+                //
+                // // Write the prompt to the console
+                // Console.WriteLine("[InputObject]");
+                //
+                // // Convert the input object to json and write it to the console
+                // Console.WriteLine(JsonConvert.SerializeObject(inputObject, Formatting.Indented));
+                //
+                // // Newline
+                // Console.WriteLine();
+                //
+                // // Set color to yellow
+                // Console.ForegroundColor = ConsoleColor.Yellow;
+                //
+                // // Write the prompt to the console
+                // Console.WriteLine("[OutputObject]");
+                //
+                // var settings = new JsonSerializerSettings();
+                // settings.Converters.Add(new StringEnumConverter());
+                // string json = JsonConvert.SerializeObject(obj, Formatting.Indented, settings);
+                // Console.WriteLine(json);
             }
         }
     }
