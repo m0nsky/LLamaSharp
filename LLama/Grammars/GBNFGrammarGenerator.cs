@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -20,6 +21,17 @@ namespace LLama.Grammars
             gbnf.Append("uint::=[0-9]+\n");
             gbnf.Append("float::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n");
             gbnf.Append("double::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n");
+            
+            // For lists, we will use the array rule. It looks like this:
+            // array  ::=
+            // "[" (
+            //     value
+            //         ("," value)*
+            // )? "]"
+            gbnf.Append("array::=\"[\"(value(\",\"value)*)?\"]\"\n");
+            
+            // Now, we create the rule for "value", this can be any of the types we defined above
+            gbnf.Append("value::=string|int|uint|float|double|boolean|array\n");
 
             // Create the root rule
             string rootRule = $"root::={type.Name}\n{type.Name}::=\"{{\"";
@@ -206,6 +218,11 @@ namespace LLama.Grammars
                 
                 // Generate the rule for the enum field
                 rule = $"{field.Name}::=" + string.Join("|", enumValues.Select(e => $"\"\\\"{e}\\\"\"")) + "\n";
+            }
+            else if (fieldType.IsArray)
+            {
+                // Generate the rule for the array field
+                rule = $"{field.Name}::=array\n";
             }
             else
             {

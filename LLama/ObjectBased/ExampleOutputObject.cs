@@ -8,8 +8,8 @@ public class ExampleOutputObject
     // Favorite pizza
     public string FavoritePizza = "";
     
-    // Favorite topping (list of strings, just cheese and pepperoni for now)
-    List<string> FavoriteToppingChoice = new List<string> { "Cheese", "Pepperoni" };
+    // Favorite toppings
+    public string[] FavoriteToppings = new string[0];
     
     // Mood private
     private Mood mood = Mood.Angry;
