@@ -3,7 +3,7 @@
 public class ExampleOutputObjectSub
 {
     // String first name
-    public string FirstName = "";
+    public string FirstName = "Peter";
     
     // String last name
     public string LastName = "";
@@ -13,7 +13,7 @@ public class ExampleOutputObjectSub
     
     // Most recent diary entry
     public DiaryEntry MostRecentDiaryEntry = new DiaryEntry();
-    
-    // Other diary entries (array)
-    public DiaryEntry[] PreviousDiaryEntries;
+    //
+    // // Other diary entries (array)
+    // public DiaryEntry[] PreviousDiaryEntries;
 }

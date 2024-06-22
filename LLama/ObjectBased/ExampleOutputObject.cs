@@ -12,7 +12,7 @@ public class ExampleOutputObject
     public string FavoritePizzaRestaurant = "Pizzeria Delizia";
     
     // Favorite toppings
-    public bool[] FavoriteToppings;
+    public bool[] FiveDifferentBooleans;
     
     // // Mood private
     // private Mood mood = Mood.Angry;
@@ -68,7 +68,7 @@ public class ExampleOutputObject
     // }
     
     // ExampleOutputObjectSub
-    //public ExampleOutputObjectSub MessageAuthor = new ExampleOutputObjectSub();
+    public ExampleOutputObjectSub MessageAuthor;
 }
 
 // Mood enum

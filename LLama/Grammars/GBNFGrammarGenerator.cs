@@ -111,9 +111,6 @@ namespace LLama.Grammars
                 {
                     gbnf.Append(knownRule.Value);
                 }
-                
-                // Value rule for "generic" arrays (this will be removed in the future, because we only support arrays of specific types)
-                //gbnf.Append("value::=string|int|uint|float|double|boolean|array\n");
             }
             
             // Clear console
@@ -129,12 +126,67 @@ namespace LLama.Grammars
             // return GenerateFromType(type);
         }
         
-        // // Converts a class to a GBNF grammar
-        // public string GenerateFromType(Type type, bool isRoot = true)
-        // {
-        //
-        //
-        // }
+        public string GenerateFromType(Type type, bool isRoot = true)
+        {
+            // Create a string builder to store the GBNF rules
+            StringBuilder gbnf = new StringBuilder();
+
+            string rootRule = "";
+            
+            // Create the root rule
+            if (isRoot)
+            {
+                // We use "root" as the type name
+                rootRule += $"root::={type.Name}\n{type.Name}::=\"{{\"";
+            }
+            else
+            {
+                // We use the type name as the root rule
+                rootRule += $"{type.Name}::=\"{{\"";
+            }
+
+            
+            // Create a list to store all the members of the class
+            List<MemberInfo> memberInfos = new List<MemberInfo>();
+            
+            // We don't just simply get all the members below, because it destroys the original order of the members
+            // The order of members can be important in LLM output (CoT/ReAct), so we get fields and properties separately
+            
+            // Get all fields
+            memberInfos.AddRange(type.GetFields(BindingFlags.Public | BindingFlags.Instance));
+            
+            // Get all properties
+            memberInfos.AddRange(type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
+
+            // Create a GBNF rule for each member
+            foreach (MemberInfo memberInfo in memberInfos)
+            {
+                gbnf.Append(GenerateRuleForMember(memberInfo, null));
+                
+                rootRule += $"\"\\\"{memberInfo.Name}\\\":\"{memberInfo.Name}";
+            
+                // Add a comma if it's not the last member
+                if (memberInfo != memberInfos.Last())
+                {
+                    rootRule += "\",\"";
+                }
+            }
+
+            // Close the root rule
+            rootRule += "\"}\"\n";
+
+            // Combine the root rule and the property rules
+            gbnf.Insert(0, rootRule);
+            
+            // Clear console
+            Console.Clear();
+            
+            // Log the generated GBNF rules
+            Console.WriteLine(gbnf.ToString());
+
+            // Return the GBNF rules as a string
+            return gbnf.ToString();
+        }
 
         private string GenerateRuleForMember(MemberInfo member, object? defaultValue)
         {
@@ -212,22 +264,21 @@ namespace LLama.Grammars
             }
             else
             {
-                // The member is not any of the known types, so we will generate a rule for its class (recursive)
-                return $"{member.Name}::={memberType.Name}\n";
+                return GenerateComplexTypeRule(member, memberType);
             }
         }
 
-        // private string GenerateCustomTypeRule(MemberInfo member, Type memberType)
-        // {
-        //     // The member is not any of the known types, so we will generate a rule for its class (recursive)
-        //     string rule = $"{member.Name}::={memberType.Name}\n";
-        //     
-        //     // Generate the rules for the class
-        //     string classRules = GenerateFromType(memberType, false);
-        //
-        //     // Return the combined rules
-        //     return rule + classRules;
-        // }
+        private string GenerateComplexTypeRule(MemberInfo member, Type memberType)
+        {
+            // The member is not any of the known types, so we will generate a rule for its class (recursive)
+            string rule = $"{member.Name}::={memberType.Name}\n";
+            
+            // Generate the rules for the class
+            string classRules = GenerateFromType(memberType, false);
+
+            // Return the combined rules
+            return rule + classRules;
+        }
     }
 }
 
