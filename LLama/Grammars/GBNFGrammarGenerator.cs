@@ -207,26 +207,50 @@ namespace LLama.Grammars
             }
             else if (memberType == typeof(int))
             {
+                // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
+                if (defaultValue != null)
+                    return $"{member.Name}::=\"{defaultValue}\"\n";
+                
                 return $"{member.Name}::=int\n";
             }
             else if (memberType == typeof(uint))
             {
+                // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
+                if (defaultValue != null)
+                    return $"{member.Name}::=\"{defaultValue}\"\n";
+                
                 return $"{member.Name}::=uint\n";
             }
             else if (memberType == typeof(float))
             {
+                // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
+                if (defaultValue != null)
+                    return $"{member.Name}::=\"{defaultValue}\"\n";
+                
                 return $"{member.Name}::=float\n";
             }
             else if (memberType == typeof(double))
             {
+                // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
+                if (defaultValue != null)
+                    return $"{member.Name}::=\"{defaultValue}\"\n";
+                
                 return $"{member.Name}::=double\n";
             }
             else if (memberType == typeof(bool))
             {
+                // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
+                if (defaultValue != null)
+                    return $"{member.Name}::=\"{defaultValue}\"\n";
+                
                 return $"{member.Name}::=boolean\n";
             }
             else if (memberType.IsEnum)
             {
+                // if the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
+                if (defaultValue != null)
+                    return $"{member.Name}::=\"\\\"{defaultValue}\\\"\"\n";
+                
                 return $"{member.Name}::=" + string.Join("|", Enum.GetNames(memberType).Select(e => $"\"\\\"{e}\\\"\"")) + "\n";
             }
             else if (memberType.IsArray)
