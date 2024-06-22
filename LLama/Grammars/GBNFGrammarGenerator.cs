@@ -79,12 +79,12 @@ namespace LLama.Grammars
             // Create a GBNF rule for each member
             foreach (MemberInfo memberInfo in memberInfos)
             {
-                // Get the value of the member
-                object? defaultValue = memberInfo.MemberType == MemberTypes.Field
+                // Get the value of the member in this instance (for now, we can't get the default value if we don't have an instance)
+                object? instanceValue = memberInfo.MemberType == MemberTypes.Field
                     ? ((FieldInfo)memberInfo).GetValue(obj)
                     : ((PropertyInfo)memberInfo).GetValue(obj);
                 
-                gbnf.Append(GenerateRuleForMember(memberInfo, defaultValue));
+                gbnf.Append(GenerateRuleForMember(memberInfo, instanceValue));
                 
                 // Add the member name to the root rule
                 objectRule += $"\"\\\"{memberInfo.Name}\\\":\"{memberInfo.Name}";
@@ -270,14 +270,26 @@ namespace LLama.Grammars
 
                 if (defaultValue == null)
                 {
-                    // Generate the rules for the type
-                    classRules = GenerateFromType(memberType, false);
+                    // We will try to create an instance of the class
+                    // If we fail, we will generate the rules for the type instead
+                    try
+                    {
+                        // We don't have an instance, so we will create one
+                        object instance = Activator.CreateInstance(memberType);
+
+                        // Generate the rules for the new instance
+                        classRules = GenerateFromObject(instance, false);
+                    }
+                    catch (Exception e)
+                    {
+                        // Generate the rules for the type
+                        classRules = GenerateFromType(memberType, false);
+                    }
                 }
                 else
                 {
                     // Generate the rules for the existing instance
                     classRules = GenerateFromObject(defaultValue, false);
-                    
                 }
 
                 // Return the combined rules
