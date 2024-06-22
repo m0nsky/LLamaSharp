@@ -268,6 +268,12 @@ namespace LLama.Grammars
                 // Check if the element type is a known type
                 if (_knownRules.ContainsKey(elementType))
                 {
+                    // Log and wait for readline
+                    Console.WriteLine($"Using existing rule for {elementType.Name}");
+                    
+                    // Wait for readline
+                    Console.ReadLine();
+                    
                     // Get the known rule
                     GBNFGrammarRule knownRule = _knownRules[elementType];
                     
@@ -276,7 +282,13 @@ namespace LLama.Grammars
                 }
                 else
                 {
-                    // Generate a rule for the element type
+                    // Log and wait for readline
+                    Console.WriteLine($"Generating rule for {elementType.Name}");
+                    
+                    // Wait for readline
+                    Console.ReadLine();
+                    
+                    // Generate a rule for the element type TODO : this calls itself.. obviously..
                     string elementRule = GenerateRuleForMember(member, null);
                     
                     // Add the rule to the known rules

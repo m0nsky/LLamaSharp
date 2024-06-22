@@ -21,5 +21,5 @@ public class ExampleOutputObjectSub
     public int[] LeastFavoriteNumbers;
     
     // Other diary entries (array)
-    //public DiaryEntry[] PreviousDiaryEntries;
+    public DiaryEntry[] PreviousDiaryEntries;
 }
