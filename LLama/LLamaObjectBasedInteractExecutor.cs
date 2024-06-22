@@ -13,31 +13,6 @@ namespace LLama;
 
 public class ObjectBasedExecutor : InteractiveExecutor
 {
-    // Constructor
-    public ObjectBasedExecutor(LLamaContext context) : base(context)
-    {
-    }
-    
-    // InferAsync override (but call base InferAsync), no modifications for now
-    public override async IAsyncEnumerable<string> InferAsync(string text, IInferenceParams? inferenceParams = null, CancellationToken token = default)
-    {
-        //text += 
-        
-        // Log the prompt (in purple)
-        Console.WriteLine($"\u001b[35m{text}\u001b[0m");
-        
-        await foreach (var response in base.InferAsync(text, inferenceParams, token))
-        {
-            yield return response;
-        }
-    }
-    
-    // Now, we do a custom InferObjectAsync.
-    // 1. This method accepts an object (generic), and first transforms it to a json string using JsonConvert.SerializeObject.
-    // 2. Then, it calls InferAsync with the json string.
-    // 3. Every loop, the result is appended to a StringBuilder, and we try to parse the latest state using JsonRepair
-    // 4. If the parsing is successful, we yield return the parsed object.
-    // 5. If the parsing fails, we continue the loop.
     public async IAsyncEnumerable<TOut?> InferObjectAsync<TIn, TOut>(TIn inputObj, TOut outputObj, IInferenceParams? inferenceParams = null, CancellationToken token = default)
     {
         // Generate grammar for the output object
@@ -59,46 +34,29 @@ public class ObjectBasedExecutor : InteractiveExecutor
         // Set the grammar instance
         inferenceParams.Grammar = grammarInstance;
         
-        string json = JsonConvert.SerializeObject(inputObj);
+        StringBuilder fullResponse = new();
         
-        // Log the json
-        //Console.WriteLine(json);
-        
-        StringBuilder sb = new();
-        
-        // Turn on LLM mode
+        // Enable LLM mode, see:
+        // https://github.com/thijse/JsonRepairSharp/commit/f3794683ff2cc293ad019a25c37f9d2e39d3cd80
         JsonRepair.Context = JsonRepair.InputType.LLM;
         
-        await foreach (var response in InferAsync(json, inferenceParams, token))
+        await foreach (var response in InferAsync(JsonConvert.SerializeObject(inputObj), inferenceParams, token))
         {
-            sb.Append(response);
-            string repaired = "";
-            
-            // Log sb.ToString()
-            //Console.WriteLine(sb.ToString());
+            // Append the response to the full response
+            fullResponse.Append(response);
             
             try
             {
-                // // Clear the console
-                // Console.Clear();
-                //
-                // // Write the unrepaired json to the console
-                // Console.WriteLine(sb.ToString());
-                
-                // Try to repair the json
-                repaired = JsonRepair.RepairJson(sb.ToString());
-                //repaired = sb.ToString();
-                
-                // Parse the repaired json
-                //parsed = JsonConvert.DeserializeObject<TOut>(repaired);
-                JsonConvert.PopulateObject(repaired, outputObj);
-
+                // Now, we'll try to repair and parse the response into JSON thus far, and use the repaired JSON to populate the output object
+                JsonConvert.PopulateObject(JsonRepair.RepairJson(fullResponse.ToString()), outputObj);
             }
             catch
             {
+                // If there's an error, we'll continue the inference, and try again
                 continue;
             }
 
+            // Return the output object
             yield return outputObj;
         }
     }

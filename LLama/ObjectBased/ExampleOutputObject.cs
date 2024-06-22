@@ -35,7 +35,7 @@ public class ExampleOutputObject
     private void OnMoodChanged()
     {
         // Log "mood changed"
-        Console.WriteLine("LLM modified the Mood property!");
+        //Console.WriteLine("LLM modified the Mood property!");
     }
 
     // Answer
@@ -60,10 +60,8 @@ public class ExampleOutputObject
     
     void OnAnswerChanged()
     {
-        answer += "!";
-        
         // Log "answer changed"
-        Console.WriteLine("LLM modified the Answer property!");
+        //Console.WriteLine("LLM modified the Answer property!");
     }
 }
 
