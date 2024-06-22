@@ -9,19 +9,46 @@ namespace LLama.Grammars
     public sealed class GBNFGrammarGenerator
     {
         // Known rules (dictionary: key = type, value = rule)
-        private readonly Dictionary<Type, string> _knownRules = new();
+        private readonly Dictionary<Type, GBNFGrammarRule> _knownRules = new();
         
         // Initialize common rules
         public GBNFGrammarGenerator()
         {
             // Add the common rules
-            _knownRules.Add(typeof(string), "string::=\"\\\"\"([^\\\"]*)\"\\\"\"\n");
-            _knownRules.Add(typeof(bool), "boolean::=\"true\"|\"false\"\n");
-            _knownRules.Add(typeof(int), "int::=[-]?[0-9]+\n");
-            _knownRules.Add(typeof(uint), "uint::=[0-9]+\n");
-            _knownRules.Add(typeof(float), "float::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n");
-            _knownRules.Add(typeof(double), "double::=[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n");
-            _knownRules.Add(typeof(Array), "array::=\"[\"(value(\",\"value)*)?\"]\"\n");
+            _knownRules.Add(typeof(string), new GBNFGrammarRule(
+                "string", 
+                "\"\\\"\"([^\\\"]*)\"\\\"\"\n")
+            );
+            
+            _knownRules.Add(typeof(bool), new GBNFGrammarRule(
+                "boolean", 
+                "\"true\"|\"false\"\n")
+            );
+            
+            _knownRules.Add(typeof(int), new GBNFGrammarRule(
+                "int", 
+                "[-]?[0-9]+\n")
+            );
+            
+            _knownRules.Add(typeof(uint), new GBNFGrammarRule(
+                "uint", 
+                "[0-9]+\n")
+            );
+            
+            _knownRules.Add(typeof(float), new GBNFGrammarRule(
+                "float", 
+                "[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n")
+            );
+            
+            _knownRules.Add(typeof(double), new GBNFGrammarRule(
+                "double", 
+                "[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n")
+            );
+            
+            _knownRules.Add(typeof(Array), new GBNFGrammarRule(
+                "array", 
+                "\"[\"(value(\",\"value)*)?\"]\"\n")
+            );
         }
         
         // Converts an object to a GBNF grammar
@@ -121,12 +148,12 @@ namespace LLama.Grammars
                 ? ((FieldInfo)member).FieldType
                 : ((PropertyInfo)member).PropertyType;
             
-            // If / elseif version
+            // Custom rules for known types
             if (memberType == typeof(string))
             {
-                // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
-                if (defaultValue != null)
-                    return $"{member.Name}::=\"\\\"{defaultValue}\\\"\"\n";
+                // If the default value is not null (and not empty), we will generate a rule for it instead of allowing the LLM to generate a response
+                if (defaultValue != null && (string)defaultValue != "")
+                        return $"{member.Name}::=\"\\\"{defaultValue}\\\"\"\n";
                 
                 // If there is no default value, we will generate a generic rule for strings and allow the LLM to generate a response
                 return $"{member.Name}::=string\n";
