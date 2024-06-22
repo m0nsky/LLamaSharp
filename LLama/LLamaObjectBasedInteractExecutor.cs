@@ -13,6 +13,10 @@ namespace LLama;
 
 public class ObjectBasedExecutor : InteractiveExecutor
 {
+    // Constructor
+    public ObjectBasedExecutor(LLamaContext context) : base(context) { }
+    
+    // Infer Object Async
     public async IAsyncEnumerable<TOut?> InferObjectAsync<TIn, TOut>(TIn inputObj, TOut outputObj, IInferenceParams? inferenceParams = null, CancellationToken token = default)
     {
         // Generate grammar for the output object

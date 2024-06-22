@@ -551,6 +551,7 @@ public static class JsonRepair
                 if (_text.CharCodeAt(_i) == StringUtils.CodeBackslash)
                 {
                     var character = _text.CharCodeAt(_i + 1);
+                    //var escapeChar = EscapeCharacters.GetValueOrDefault(character, null);
                     var escapeChar = EscapeCharacters.TryGetValue((char)character, out var escapeCharValue) ? escapeCharValue : null;
                     if (escapeChar != null)
                     {
