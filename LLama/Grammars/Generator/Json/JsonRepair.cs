@@ -6,7 +6,6 @@ using JsonRepairSharp;
 
 namespace LLama.Grammars.Generator.Json;
 
-
 /// <summary>
 /// JsonRepairSharp library
 /// https://github.com/thijse/JsonRepairSharp
