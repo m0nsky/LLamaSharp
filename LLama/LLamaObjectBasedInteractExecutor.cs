@@ -63,11 +63,11 @@ public class ObjectBasedExecutor : InteractiveExecutor
             
             try
             {
-                // // Clear the console
-                // Console.Clear();
-                //
-                // // Log the raw response
-                // Console.WriteLine(fullResponse);
+                // Clear the console
+                Console.Clear();
+                
+                // Log the raw response
+                Console.WriteLine(fullResponse);
                 
                 // Now, we'll try to repair and parse the response into JSON thus far, and use the repaired JSON to populate the output object
                 JsonConvert.PopulateObject(JsonRepair.RepairJson(fullResponse.ToString()), outputObj);

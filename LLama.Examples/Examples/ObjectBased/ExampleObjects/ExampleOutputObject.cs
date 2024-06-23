@@ -6,7 +6,7 @@ public class ExampleOutputObject
     public string FavoritePizza;
     
     // Favorite pizza restaurant
-    public string FavoritePizzaRestaurant = "Pizzeria Delizia";
+    public string FavoritePizzaRestaurant = "";
     
     // Favorite toppings
     public bool[] FiveDifferentBooleans;

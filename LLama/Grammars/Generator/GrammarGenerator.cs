@@ -12,7 +12,13 @@ public sealed class GrammarGenerator
     private readonly Dictionary<Type, GrammarGeneratorRule> _knownRules = new();
     
     // Default value mode
-    public DefaultValueMode DefaultValueMode { get; set; } = DefaultValueMode.Discard;
+    public DefaultValueMode DefaultValueMode = DefaultValueMode.Complete;
+    
+    // Array mode
+    public ArrayMode ArrayMode = ArrayMode.Fill;
+    
+    // Instantiate unknown types (if false, we generate the rule for it's Type instead)
+    public bool InstantiateUnknownTypes = true;
     
     // Initialize common rules
     public GrammarGenerator()
@@ -116,11 +122,14 @@ public sealed class GrammarGenerator
         // Combine the root rule and the property rules
         gbnf.Insert(0, objectRule);
         
-        // Clear console
-        Console.Clear();
-        
-        // Log the generated GBNF rules
-        Console.WriteLine(gbnf.ToString());
+        // // Clear console
+        // Console.Clear();
+        //
+        // // Log the generated GBNF rules
+        // Console.WriteLine(gbnf.ToString());
+        //
+        // // Wait for readline
+        // Console.ReadLine();
 
         // Return the GBNF rules as a string
         return gbnf.ToString();
@@ -181,11 +190,11 @@ public sealed class GrammarGenerator
         // Combine the root rule and the property rules
         gbnf.Insert(0, rootRule);
         
-        // Clear console
-        Console.Clear();
-        
-        // Log the generated GBNF rules
-        Console.WriteLine(gbnf.ToString());
+        // // Clear console
+        // Console.Clear();
+        //
+        // // Log the generated GBNF rules
+        // Console.WriteLine(gbnf.ToString());
 
         // Return the GBNF rules as a string
         return gbnf.ToString();
@@ -201,11 +210,28 @@ public sealed class GrammarGenerator
         // Custom rules for known types
         if (memberType == typeof(string))
         {
-            // If the default value is not null (and not empty), we will generate a rule for it instead of allowing the LLM to generate a response
-            if (defaultValue != null && (string)defaultValue != "")
+            if (DefaultValueMode == DefaultValueMode.Keep)
+            {
+                // If the default value is not null (and not empty), we will generate a rule that just keeps the default value
+                if (defaultValue != null && (string)defaultValue != "")
+                {
                     return $"{member.Name}::=\"\\\"{defaultValue}\\\"\"\n";
+                }
+
+            }
+            else if (DefaultValueMode == DefaultValueMode.Discard)
+            {
+                // We will generate a rule that just discards the value, and allows the LLM to generate a string
+                return $"{member.Name}::=string\n";
+            }
+            else if (DefaultValueMode == DefaultValueMode.Complete)
+            {
+                if (defaultValue != null && (string)defaultValue != "")
+                {
+                    return $"{member.Name}::=\"\\\"{defaultValue}([^\\\"]*)\\\"\"\n";
+                }
+            }
             
-            // If there is no default value, we will generate a generic rule for strings and allow the LLM to generate a response
             return $"{member.Name}::=string\n";
         }
         else if (memberType == typeof(int))
@@ -271,11 +297,11 @@ public sealed class GrammarGenerator
             // Check if the element type is a known type
             if (_knownRules.ContainsKey(elementType))
             {
-                // Log and wait for readline
-                Console.WriteLine($"Using existing rule for {elementType.Name}");
-                
-                // Wait for readline
-                Console.ReadLine();
+                // // Log and wait for readline
+                // Console.WriteLine($"Using existing rule for {elementType.Name}");
+                //
+                // // Wait for readline
+                // Console.ReadLine();
                 
                 // Get the known rule
                 GrammarGeneratorRule knownGeneratorRule = _knownRules[elementType];
@@ -285,14 +311,14 @@ public sealed class GrammarGenerator
             }
             else
             {
-                // Log and wait for readline
-                Console.WriteLine($"Generating rule for {elementType.Name}");
-                
-                // Log the namespace of the element type
-                Console.WriteLine(elementType.Namespace);
-                
-                // Wait for readline
-                Console.ReadLine();
+                // // Log and wait for readline
+                // Console.WriteLine($"Generating rule for {elementType.Name}");
+                //
+                // // Log the namespace of the element type
+                // Console.WriteLine(elementType.Namespace);
+                //
+                // // Wait for readline
+                // Console.ReadLine();
                 
                 // Generate the rule for the element type
                 string elementRule = GenerateFromType(elementType, false);
@@ -312,21 +338,30 @@ public sealed class GrammarGenerator
 
             if (defaultValue == null)
             {
-                // We will try to create an instance of the class
-                // If we fail, we will generate the rules for the type instead
-                try
+                if (InstantiateUnknownTypes)
                 {
-                    // We don't have an instance, so we will create one
-                    object instance = Activator.CreateInstance(memberType);
+                    // We will try to create an instance of the class
+                    // If we fail, we will generate the rules for the type instead
+                    try
+                    {
+                        // We don't have an instance, so we will create one
+                        object instance = Activator.CreateInstance(memberType);
 
-                    // Generate the rules for the new instance
-                    classRules = GenerateFromObject(instance, false);
+                        // Generate the rules for the new instance
+                        classRules = GenerateFromObject(instance, false);
+                    }
+                    catch (Exception e)
+                    {
+                        // Generate the rules for the type
+                        classRules = GenerateFromType(memberType, false);
+                    }
                 }
-                catch (Exception e)
+                else
                 {
                     // Generate the rules for the type
                     classRules = GenerateFromType(memberType, false);
                 }
+
             }
             else
             {
@@ -343,11 +378,18 @@ public sealed class GrammarGenerator
     }
 }
 
-// Default value mode enum (discard, overwrite or completion)
+// Default value mode enum (Discard/Overwrite/Complete)
 public enum DefaultValueMode
 {
+    Keep,
     Discard,
-    Overwrite,
-    Completion
+    Complete
+}
+    
+// Array mode enum (Fill/Select)
+public enum ArrayMode
+{
+    Fill,
+    Select
 }
 
