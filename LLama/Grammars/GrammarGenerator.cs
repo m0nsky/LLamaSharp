@@ -6,44 +6,44 @@ using System.Text;
 
 namespace LLama.Grammars
 {
-    public sealed class GBNFGrammarGenerator
+    public sealed class GrammarGenerator
     {
         // Known rules (dictionary: key = type, value = rule)
-        private readonly Dictionary<Type, GBNFGrammarRule> _knownRules = new();
+        private readonly Dictionary<Type, GrammarGeneratorRule> _knownRules = new();
         
         // Default value mode
         public DefaultValueMode DefaultValueMode { get; set; } = DefaultValueMode.Discard;
         
         // Initialize common rules
-        public GBNFGrammarGenerator()
+        public GrammarGenerator()
         {
             // Add the common rules
-            _knownRules.Add(typeof(string), new GBNFGrammarRule(
+            _knownRules.Add(typeof(string), new GrammarGeneratorRule(
                 "string", 
                 "\"\\\"\"([^\\\"]*)\"\\\"\"\n")
             );
             
-            _knownRules.Add(typeof(bool), new GBNFGrammarRule(
+            _knownRules.Add(typeof(bool), new GrammarGeneratorRule(
                 "boolean", 
                 "\"true\"|\"false\"\n")
             );
             
-            _knownRules.Add(typeof(int), new GBNFGrammarRule(
+            _knownRules.Add(typeof(int), new GrammarGeneratorRule(
                 "int", 
                 "[-]?[0-9]+\n")
             );
             
-            _knownRules.Add(typeof(uint), new GBNFGrammarRule(
+            _knownRules.Add(typeof(uint), new GrammarGeneratorRule(
                 "uint", 
                 "[0-9]+\n")
             );
             
-            _knownRules.Add(typeof(float), new GBNFGrammarRule(
+            _knownRules.Add(typeof(float), new GrammarGeneratorRule(
                 "float", 
                 "[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n")
             );
             
-            _knownRules.Add(typeof(double), new GBNFGrammarRule(
+            _knownRules.Add(typeof(double), new GrammarGeneratorRule(
                 "double", 
                 "[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n")
             );
@@ -278,10 +278,10 @@ namespace LLama.Grammars
                     Console.ReadLine();
                     
                     // Get the known rule
-                    GBNFGrammarRule knownRule = _knownRules[elementType];
+                    GrammarGeneratorRule knownGeneratorRule = _knownRules[elementType];
                     
                     // Generate the array rule
-                    return $"{member.Name}::=\"[\"({knownRule.Name}(\",\"{knownRule.Name})*)?\"]\"\n";
+                    return $"{member.Name}::=\"[\"({knownGeneratorRule.Name}(\",\"{knownGeneratorRule.Name})*)?\"]\"\n";
                 }
                 else
                 {
@@ -298,7 +298,7 @@ namespace LLama.Grammars
                     string elementRule = GenerateFromType(elementType, false);
                     
                     // Add the rule to the known rules
-                    _knownRules.Add(elementType, new GBNFGrammarRule(elementType.Name, elementRule));
+                    _knownRules.Add(elementType, new GrammarGeneratorRule(elementType.Name, elementRule));
                     
                     // Generate the array rule
                     return $"{member.Name}::=\"[\"({elementRule}(\",\"{elementRule})*)?\"]\"\n";
@@ -335,7 +335,7 @@ namespace LLama.Grammars
                 }
                 
                 // Add the rule to the known rules
-                _knownRules.Add(memberType, new GBNFGrammarRule(memberType.Name, classRules));
+                _knownRules.Add(memberType, new GrammarGeneratorRule(memberType.Name, classRules));
 
                 // Return the combined rules
                 return rule + classRules;

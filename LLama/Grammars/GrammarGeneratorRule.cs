@@ -1,6 +1,6 @@
 ﻿namespace LLama.Grammars;
 
-public class GBNFGrammarRule
+public class GrammarGeneratorRule
 {
     // Name
     public string Name;
@@ -12,7 +12,7 @@ public class GBNFGrammarRule
     public string Rule;
     
     // Constructor
-    public GBNFGrammarRule(string name, string rule, string ns = "")
+    public GrammarGeneratorRule(string name, string rule, string ns = "")
     {
         Name = name;
         Rule = rule;
