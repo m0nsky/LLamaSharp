@@ -2,28 +2,15 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text.RegularExpressions;
-namespace JsonRepairSharp;
+using JsonRepairSharp;
+
+namespace LLama.Grammars.Generator.Json;
 
 
-/*
-   * Repair a string containing an invalid JSON document.
-   * For example output from a LLM model
-   *
-   * Example:
-    try
-    {
-        string json = "{name: 'John'}";
-        string repaired = JSONRepair.JsonRepair(json);
-        Console.WriteLine(repaired);
-        // Output: {"name": "John"}
-    }
-    catch (JSONRepairError err)
-    {
-        Console.WriteLine(err.Message);
-        Console.WriteLine("Position: " + err.Data["Position"]);
-    }
- */
-
+/// <summary>
+/// JsonRepairSharp library
+/// https://github.com/thijse/JsonRepairSharp
+/// </summary>
 public static class JsonRepair
 {
     public enum InputType

@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Text.RegularExpressions;
-namespace JsonRepairSharp;
+
+namespace LLama.Grammars.Generator.Json;
 
 /// <summary>
-/// This class provides utility methods working with strings for jsonrepair.
+/// JsonRepairSharp library
+/// https://github.com/thijse/JsonRepairSharp
 /// </summary>
 public static class StringUtils
 {

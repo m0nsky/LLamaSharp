@@ -1,4 +1,4 @@
-﻿namespace LLama.Grammars;
+﻿namespace LLama.Grammars.Generator;
 
 public class GrammarGeneratorRule
 {

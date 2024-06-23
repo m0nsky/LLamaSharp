@@ -7,6 +7,8 @@ using LLama.Abstractions;
 using LLama.Common;
 using JsonRepairSharp;
 using LLama.Grammars;
+using LLama.Grammars.Generator;
+using LLama.Grammars.Generator.Json;
 using Newtonsoft.Json;
 
 namespace LLama;
