@@ -241,7 +241,9 @@ public sealed class GrammarGenerator
                     
                     // GBNF RULE
                     // FirstName::="\"Pe ([^\"]*) \""
-                    return $"{member.Name}::=\"\\\"{defaultValue} \" ([^\\\"]*) \" \\\"\"\n";
+                    
+                    //return $"{member.Name}::=\"\\\"{defaultValue}\" ([^\"\\\\] | \"\\\\\" ([\"\\\\/bfnrt] | \"u\" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))*  \" \\\"\"\n";
+                    return $"{member.Name}::=\"\\\"{defaultValue}\" ([^\\\"]*) \"\\\"\"\n";
                     
                 }
             }

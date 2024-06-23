@@ -3,7 +3,7 @@
 public class ExampleOutputObjectSub
 {
     // String first name
-    public string FirstName = "Pe";
+    public string FirstName = "Pet";
     
     // String last name
     public string LastName = "";
