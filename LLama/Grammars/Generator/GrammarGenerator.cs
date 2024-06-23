@@ -228,7 +228,21 @@ public sealed class GrammarGenerator
             {
                 if (defaultValue != null && (string)defaultValue != "")
                 {
-                    return $"{member.Name}::=\"\\\"{defaultValue}([^\\\"]*)\\\"\"\n";
+                    // LLM OUTPUT
+                    // "MessageAuthor":{"FirstName":"Pe([^"]*)","LastName":"Bot",
+                    
+                    // GBNF RULE
+                    // FirstName::="\"Pe([^\"]*)\""
+                    //return $"{member.Name}::=\"\\\"{defaultValue}([^\\\"]*)\\\"\"\n";
+                    
+                    // GBNF RULE
+                    // FirstName::="\"Pe ([^\"]*) \""
+                    //return $"{member.Name}::=\"\\\"{defaultValue} ([^\\\"]*) \\\"\"\n";
+                    
+                    // GBNF RULE
+                    // FirstName::="\"Pe ([^\"]*) \""
+                    return $"{member.Name}::=\"\\\"{defaultValue} \" ([^\\\"]*) \" \\\"\"\n";
+                    
                 }
             }
             
