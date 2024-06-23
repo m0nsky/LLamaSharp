@@ -1,4 +1,4 @@
-﻿namespace JsonRepairSharp;
+﻿namespace LLama.Examples.Examples.ObjectBased.ExampleObjects;
 
 public class ExampleOutputObjectSub
 {

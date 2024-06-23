@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
-using JsonRepairSharp;
 using LLama.Common;
+using LLama.Examples.Examples.ObjectBased.ExampleObjects;
 using LLama.Grammars;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;

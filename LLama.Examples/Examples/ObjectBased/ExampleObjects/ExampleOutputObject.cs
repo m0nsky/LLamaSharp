@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace JsonRepairSharp;
+﻿namespace LLama.Examples.Examples.ObjectBased.ExampleObjects;
 
 public class ExampleOutputObject
 {
