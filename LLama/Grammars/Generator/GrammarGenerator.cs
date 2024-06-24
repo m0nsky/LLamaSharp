@@ -116,7 +116,7 @@ public sealed class GrammarGenerator
             gbnf.Append(GenerateRuleForMember(memberInfo, instanceValue));
             
             // Add the member name to the root rule
-            objectRule += $"\"{JsonQuote}{memberInfo.Name}{JsonQuote}:\"{memberInfo.Name}";
+            objectRule += $"\"{JsonQuote}{memberInfo.Name}{JsonQuote}:\"{GetRuleName(memberInfo)}";
         
             // Add a comma if it's not the last member
             if (memberInfo != memberInfos.Last())
@@ -185,7 +185,7 @@ public sealed class GrammarGenerator
         {
             gbnf.Append(GenerateRuleForMember(memberInfo, null));
             
-            rootRule += $"\"{JsonQuote}{memberInfo.Name}{JsonQuote}:\"{memberInfo.Name}";
+            rootRule += $"\"{JsonQuote}{memberInfo.Name}{JsonQuote}:\"{GetRuleName(memberInfo)}";
         
             // Add a comma if it's not the last member
             if (memberInfo != memberInfos.Last())
@@ -209,6 +209,18 @@ public sealed class GrammarGenerator
         // Return the GBNF rules as a string
         return gbnf.ToString();
     }
+    
+    // Get rule name
+    public string GetRuleName(MemberInfo member)
+    {
+        // Get the name of the rule
+        string ruleName = $"{member.DeclaringType?.Namespace}-{member.DeclaringType?.Name}-{member.Name}";
+        
+        // Replace dots with dashes (underscores won't work and will throw an exception)
+        ruleName = ruleName.Replace(".", "-");
+        
+        return ruleName;
+    }
 
     private string GenerateRuleForMember(MemberInfo member, object? defaultValue)
     {
@@ -216,6 +228,9 @@ public sealed class GrammarGenerator
         Type memberType = member.MemberType == MemberTypes.Field
             ? ((FieldInfo)member).FieldType
             : ((PropertyInfo)member).PropertyType;
+        
+        // Get the name of the rule
+        string ruleName = GetRuleName(member);
         
         // Custom rules for known types
         if (memberType == typeof(string))
@@ -225,74 +240,74 @@ public sealed class GrammarGenerator
                 // If the default value is not null (and not empty), we will generate a rule that just keeps the default value
                 if (defaultValue != null && (string) defaultValue != "")
                 {
-                    return $"{member.Name}::=\"{JsonQuote}{defaultValue}{JsonQuote}\"\n";
+                    return $"{ruleName}::=\"{JsonQuote}{defaultValue}{JsonQuote}\"\n";
                 }
 
             }
             else if (DefaultValueMode == DefaultValueMode.Discard)
             {
                 // We will generate a rule that just discards the value, and allows the LLM to generate a string
-                return $"{member.Name}::=string\n";
+                return $"{ruleName}::=string\n";
             }
             else if (DefaultValueMode == DefaultValueMode.Complete)
             {
                 // If the default value isn't null, and isn't empty, we allow autocompletion of the default value
                 if (defaultValue != null && (string) defaultValue != "")
                 {
-                    return $"{member.Name}::=\"{JsonQuote}{defaultValue}\" {StringRule} \"{JsonQuote}\"\n";
+                    return $"{ruleName}::=\"{JsonQuote}{defaultValue}\" {StringRule} \"{JsonQuote}\"\n";
                 }
             }
             
-            return $"{member.Name}::=string\n";
+            return $"{ruleName}::=string\n";
         }
         else if (memberType == typeof(int))
         {
             // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
             if (defaultValue != null)
-                return $"{member.Name}::=\"{defaultValue}\"\n";
+                return $"{ruleName}::=\"{defaultValue}\"\n";
             
-            return $"{member.Name}::=int\n";
+            return $"{ruleName}::=int\n";
         }
         else if (memberType == typeof(uint))
         {
             // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
             if (defaultValue != null)
-                return $"{member.Name}::=\"{defaultValue}\"\n";
+                return $"{ruleName}::=\"{defaultValue}\"\n";
             
-            return $"{member.Name}::=uint\n";
+            return $"{ruleName}::=uint\n";
         }
         else if (memberType == typeof(float))
         {
             // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
             if (defaultValue != null)
-                return $"{member.Name}::=\"{defaultValue}\"\n";
+                return $"{ruleName}::=\"{defaultValue}\"\n";
             
-            return $"{member.Name}::=float\n";
+            return $"{ruleName}::=float\n";
         }
         else if (memberType == typeof(double))
         {
             // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
             if (defaultValue != null)
-                return $"{member.Name}::=\"{defaultValue}\"\n";
+                return $"{ruleName}::=\"{defaultValue}\"\n";
             
-            return $"{member.Name}::=double\n";
+            return $"{ruleName}::=double\n";
         }
         else if (memberType == typeof(bool))
         {
             // If the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
             if (defaultValue != null)
-                return $"{member.Name}::=\"{defaultValue}\"\n";
+                return $"{ruleName}::=\"{defaultValue}\"\n";
             
-            return $"{member.Name}::=boolean\n";
+            return $"{ruleName}::=boolean\n";
         }
         else if (memberType.IsEnum)
         {
             // if the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
             // Enums always have a default value, so there is a specific setting for this
             if (defaultValue != null && UseEnumDefaults)
-                return $"{member.Name}::=\"{JsonQuote}{defaultValue}{JsonQuote}\"\n";
+                return $"{ruleName}::=\"{JsonQuote}{defaultValue}{JsonQuote}\"\n";
             
-            return $"{member.Name}::=" + string.Join("|", Enum.GetNames(memberType).Select(e => $"\"{JsonQuote}{e}{JsonQuote}\"")) + "\n";
+            return $"{ruleName}::=" + string.Join("|", Enum.GetNames(memberType).Select(e => $"\"{JsonQuote}{e}{JsonQuote}\"")) + "\n";
         }
         else if (memberType.IsArray)
         {
@@ -319,7 +334,7 @@ public sealed class GrammarGenerator
                 GrammarGeneratorRule knownGeneratorRule = _knownRules[elementType];
                 
                 // Generate the array rule
-                return $"{member.Name}::=\"[\"({knownGeneratorRule.Name}(\",\"{knownGeneratorRule.Name})*)?\"]\"\n";
+                return $"{ruleName}::=\"[\"({knownGeneratorRule.Name}(\",\"{knownGeneratorRule.Name})*)?\"]\"\n";
             }
             else
             {
@@ -339,13 +354,13 @@ public sealed class GrammarGenerator
                 _knownRules.Add(elementType, new GrammarGeneratorRule(elementType.Name, elementRule));
                 
                 // Generate the array rule
-                return $"{member.Name}::=\"[\"({elementRule}(\",\"{elementRule})*)?\"]\"\n";
+                return $"{ruleName}::=\"[\"({elementRule}(\",\"{elementRule})*)?\"]\"\n";
             }
         }
         else
         {
             // The member is not any of the known types, so we will generate a rule for its class (recursive)
-            string rule = $"{member.Name}::={memberType.Name}\n";
+            string rule = $"{ruleName}::={memberType.Name}\n";
             string classRules;
 
             if (defaultValue == null)
