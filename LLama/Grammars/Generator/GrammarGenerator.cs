@@ -223,7 +223,7 @@ public sealed class GrammarGenerator
             if (DefaultValueMode == DefaultValueMode.Keep)
             {
                 // If the default value is not null (and not empty), we will generate a rule that just keeps the default value
-                if (defaultValue != null && (string)defaultValue != "")
+                if (defaultValue != null && (string) defaultValue != "")
                 {
                     return $"{member.Name}::=\"{JsonQuote}{defaultValue}{JsonQuote}\"\n";
                 }
@@ -236,7 +236,8 @@ public sealed class GrammarGenerator
             }
             else if (DefaultValueMode == DefaultValueMode.Complete)
             {
-                if (defaultValue != null && (string)defaultValue != "")
+                // If the default value isn't null, and isn't empty, we allow autocompletion of the default value
+                if (defaultValue != null && (string) defaultValue != "")
                 {
                     return $"{member.Name}::=\"{JsonQuote}{defaultValue}\" {StringRule} \"{JsonQuote}\"\n";
                 }
