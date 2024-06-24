@@ -24,13 +24,11 @@ public sealed class GrammarGenerator
     public bool InstantiateUnknownTypes = true;
     
     // Base rules for string (not including quotes for json)
-    private string StringRule = "([^\\\"]*)";
+    //private string StringRule = "([^\\\"]*)";
+    private string StringRule = "( [^\"\\\\] | \"\\\\\" ([\"\\\\/bfnrt] | \"u\" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) )*"; // https://github.com/ggerganov/llama.cpp/blob/master/grammars/json.gbnf
     
-    // JSON quote start segment
-    private string JsonQuoteStart = "\"\\\"\"";
-    
-    // JSON quote end segment
-    private string JsonQuoteEnd = "\"\\\"\"";
+    // JSON quote start segment (this is a simple quote in json, also in between gbnf quotes start and end)
+    private string JsonQuote = "\\\"";
     
     // Initialize common rules
     public GrammarGenerator()
@@ -38,8 +36,7 @@ public sealed class GrammarGenerator
         // Add the common rules
         _knownRules.Add(typeof(string), new GrammarGeneratorRule(
             "string", 
-            //"\"\\\"\"([^\\\"]*)\"\\\"\"\n")
-            $"{JsonQuoteStart}{StringRule}{JsonQuoteEnd}\n")
+            $"\"{JsonQuote}\"{StringRule}\"{JsonQuote}\"\n")
         );
         
         _knownRules.Add(typeof(bool), new GrammarGeneratorRule(
@@ -119,7 +116,7 @@ public sealed class GrammarGenerator
             gbnf.Append(GenerateRuleForMember(memberInfo, instanceValue));
             
             // Add the member name to the root rule
-            objectRule += $"\"\\\"{memberInfo.Name}\\\":\"{memberInfo.Name}";
+            objectRule += $"\"{JsonQuote}{memberInfo.Name}{JsonQuote}:\"{memberInfo.Name}";
         
             // Add a comma if it's not the last member
             if (memberInfo != memberInfos.Last())
@@ -188,7 +185,7 @@ public sealed class GrammarGenerator
         {
             gbnf.Append(GenerateRuleForMember(memberInfo, null));
             
-            rootRule += $"\"\\\"{memberInfo.Name}\\\":\"{memberInfo.Name}";
+            rootRule += $"\"{JsonQuote}{memberInfo.Name}{JsonQuote}:\"{memberInfo.Name}";
         
             // Add a comma if it's not the last member
             if (memberInfo != memberInfos.Last())
@@ -228,7 +225,7 @@ public sealed class GrammarGenerator
                 // If the default value is not null (and not empty), we will generate a rule that just keeps the default value
                 if (defaultValue != null && (string)defaultValue != "")
                 {
-                    return $"{member.Name}::=\"\\\"{defaultValue}\\\"\"\n";
+                    return $"{member.Name}::=\"{JsonQuote}{defaultValue}{JsonQuote}\"\n";
                 }
 
             }
@@ -241,7 +238,7 @@ public sealed class GrammarGenerator
             {
                 if (defaultValue != null && (string)defaultValue != "")
                 {
-                    return $"{member.Name}::=\"\\\"{defaultValue}\" ([^\\\"]*) \"\\\"\"\n";
+                    return $"{member.Name}::=\"{JsonQuote}{defaultValue}\" {StringRule} \"{JsonQuote}\"\n";
                 }
             }
             
@@ -292,9 +289,9 @@ public sealed class GrammarGenerator
             // if the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
             // Enums always have a default value, so there is a specific setting for this
             if (defaultValue != null && UseEnumDefaults)
-                return $"{member.Name}::=\"\\\"{defaultValue}\\\"\"\n";
+                return $"{member.Name}::=\"{JsonQuote}{defaultValue}{JsonQuote}\"\n";
             
-            return $"{member.Name}::=" + string.Join("|", Enum.GetNames(memberType).Select(e => $"\"\\\"{e}\\\"\"")) + "\n";
+            return $"{member.Name}::=" + string.Join("|", Enum.GetNames(memberType).Select(e => $"\"{JsonQuote}{e}{JsonQuote}\"")) + "\n";
         }
         else if (memberType.IsArray)
         {
