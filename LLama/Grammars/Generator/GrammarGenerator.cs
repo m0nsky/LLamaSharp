@@ -17,6 +17,9 @@ public sealed class GrammarGenerator
     // Array mode
     public ArrayMode ArrayMode = ArrayMode.Fill;
     
+    // Use enum defaults
+    public bool UseEnumDefaults = false;
+    
     // Instantiate unknown types (if false, we generate the rule for it's Type instead)
     public bool InstantiateUnknownTypes = true;
     
@@ -277,7 +280,8 @@ public sealed class GrammarGenerator
         else if (memberType.IsEnum)
         {
             // if the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
-            if (defaultValue != null)
+            // Enums always have a default value, so there is a specific setting for this
+            if (defaultValue != null && UseEnumDefaults)
                 return $"{member.Name}::=\"\\\"{defaultValue}\\\"\"\n";
             
             return $"{member.Name}::=" + string.Join("|", Enum.GetNames(memberType).Select(e => $"\"\\\"{e}\\\"\"")) + "\n";
