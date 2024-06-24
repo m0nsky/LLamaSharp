@@ -11,6 +11,9 @@ public class ExampleOutputObject
     // Favorite toppings
     public bool[] FiveDifferentBooleans;
     
+    // Array of diary entries
+    public DiaryEntry[] DiaryEntries;
+    
     // // Mood private
     // private Mood mood = Mood.Angry;
     //
@@ -65,7 +68,7 @@ public class ExampleOutputObject
     // }
     
     // ExampleOutputObjectSub
-    public ExampleOutputObjectSub MessageAuthor = new ExampleOutputObjectSub();
+    //public ExampleOutputObjectSub MessageAuthor = new ExampleOutputObjectSub();
 }
 
 // Mood enum
