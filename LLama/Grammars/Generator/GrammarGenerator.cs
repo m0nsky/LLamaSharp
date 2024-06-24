@@ -23,13 +23,23 @@ public sealed class GrammarGenerator
     // Instantiate unknown types (if false, we generate the rule for it's Type instead)
     public bool InstantiateUnknownTypes = true;
     
+    // Base rules for string (not including quotes for json)
+    private string StringRule = "([^\\\"]*)";
+    
+    // JSON quote start segment
+    private string JsonQuoteStart = "\"\\\"\"";
+    
+    // JSON quote end segment
+    private string JsonQuoteEnd = "\"\\\"\"";
+    
     // Initialize common rules
     public GrammarGenerator()
     {
         // Add the common rules
         _knownRules.Add(typeof(string), new GrammarGeneratorRule(
             "string", 
-            "\"\\\"\"([^\\\"]*)\"\\\"\"\n")
+            //"\"\\\"\"([^\\\"]*)\"\\\"\"\n")
+            $"{JsonQuoteStart}{StringRule}{JsonQuoteEnd}\n")
         );
         
         _knownRules.Add(typeof(bool), new GrammarGeneratorRule(
