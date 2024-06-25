@@ -8,66 +8,83 @@ namespace LLama.Grammars.Generator;
 
 public sealed class GrammarGenerator
 {
-    // Known rules (dictionary: key = type, value = rule)
-    private readonly Dictionary<Type, GrammarGeneratorRule> _knownRules = new();
+    // Common rules (Dictionary: key = type, value = rule string without new line)
+    // This will include things like int, float, string, etc.
+    private Dictionary<Type, GrammarGeneratorRule> commonRules = new();
     
-    // Default value mode
-    public DefaultValueMode DefaultValueMode = DefaultValueMode.Complete;
+    // Custom rules (Dictionary: key = name string, value = rule string without new line)
+    // This will include the fields we come across per object and their subjects
+    private Dictionary<string, string> customRules = new();
     
-    // Array mode
-    public ArrayMode ArrayMode = ArrayMode.Fill;
+    // Settings
+    public GrammarGeneratorSettings Settings = new();
     
-    // Use enum defaults
-    public bool UseEnumDefaults = false;
-    
-    // Instantiate unknown types (if false, we generate the rule for it's Type instead)
-    public bool InstantiateUnknownTypes = true;
-    
-    // Base rules for string (not including quotes for json)
-    //private string StringRule = "([^\\\"]*)";
-    private string StringRule = "( [^\"\\\\] | \"\\\\\" ([\"\\\\/bfnrt] | \"u\" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) )*"; // https://github.com/ggerganov/llama.cpp/blob/master/grammars/json.gbnf
-    
-    // JSON quote start segment (this is a simple quote in json, also in between gbnf quotes start and end)
-    private string JsonQuote = "\\\"";
-    
-    // Initialize common rules
-    public GrammarGenerator()
+    // Initialize Common Rules
+    public void RegisterCommonRules()
     {
         // Add the common rules
-        _knownRules.Add(typeof(string), new GrammarGeneratorRule(
+        commonRules.Add(typeof(string), new GrammarGeneratorRule(
             "string", 
-            $"\"{JsonQuote}\"{StringRule}\"{JsonQuote}\"\n")
+            $"\"{Settings.JsonQuote}\"{Settings.StringRule}\"{Settings.JsonQuote}\"\n")
         );
         
-        _knownRules.Add(typeof(bool), new GrammarGeneratorRule(
+        commonRules.Add(typeof(bool), new GrammarGeneratorRule(
             "boolean", 
             "\"true\"|\"false\"\n")
         );
         
-        _knownRules.Add(typeof(int), new GrammarGeneratorRule(
+        commonRules.Add(typeof(int), new GrammarGeneratorRule(
             "int", 
             "[-]?[0-9]+\n")
         );
         
-        _knownRules.Add(typeof(uint), new GrammarGeneratorRule(
+        commonRules.Add(typeof(uint), new GrammarGeneratorRule(
             "uint", 
             "[0-9]+\n")
         );
         
-        _knownRules.Add(typeof(float), new GrammarGeneratorRule(
+        commonRules.Add(typeof(float), new GrammarGeneratorRule(
             "float", 
             "[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n")
         );
         
-        _knownRules.Add(typeof(double), new GrammarGeneratorRule(
+        commonRules.Add(typeof(double), new GrammarGeneratorRule(
             "double", 
             "[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n")
         );
     }
     
-    // Converts an object to a GBNF grammar
-    public string GenerateFromObject(object obj, bool isRoot = true)
+    public GrammarGenerator(GrammarGeneratorSettings? settings = null)
     {
+        // Register common rules
+        RegisterCommonRules();
+        
+        // Set the settings
+        if (settings != null)
+            Settings = settings;
+    }
+    
+    // Converts an object to a GBNF grammar
+    public string Generate<T>(T obj, bool isRoot = true)
+    {
+        // Check if we are dealing with an object or a class
+        if (obj is object)
+        {
+            // Log and wait for readline
+            Console.WriteLine("Generating rules for object");
+            
+            // Wait for readline
+            Console.ReadLine();
+        }
+        else
+        {
+            // Log and wait for readline
+            Console.WriteLine("Generating rules for class");
+            
+            // Wait for readline
+            Console.ReadLine();
+        }
+        
         // Create a string builder to store the GBNF rules
         StringBuilder gbnf = new StringBuilder();
         
@@ -95,16 +112,6 @@ public sealed class GrammarGenerator
         // Get all properties
         memberInfos.AddRange(type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
         
-        // If this is the root node, we will add the common rules
-        if (isRoot)
-        {
-            // Add the common rules
-            foreach (var knownRule in _knownRules)
-            {
-                gbnf.Append(knownRule.Value);
-            }
-        }
-        
         // Create a GBNF rule for each member
         foreach (MemberInfo memberInfo in memberInfos)
         {
@@ -116,7 +123,7 @@ public sealed class GrammarGenerator
             gbnf.Append(GenerateRuleForMember(memberInfo, instanceValue));
             
             // Add the member name to the root rule
-            objectRule += $"\"{JsonQuote}{memberInfo.Name}{JsonQuote}:\"{GetRuleName(memberInfo)}";
+            objectRule += $"\"{Settings.JsonQuote}{memberInfo.Name}{Settings.JsonQuote}:\"{GetRuleName(memberInfo)}";
         
             // Add a comma if it's not the last member
             if (memberInfo != memberInfos.Last())
@@ -125,27 +132,25 @@ public sealed class GrammarGenerator
                 objectRule += "\",\"";
             }
         }
+        
+        // If this is the root node, we will add the common rules
+        if (isRoot)
+        {
+            // Add the common rules
+            foreach (var knownRule in commonRules)
+            {
+                gbnf.Append(knownRule.Value);
+            }
+        }
 
         // Close the root rule
         objectRule += "\"}\"\n";
 
         // Combine the root rule and the property rules
         gbnf.Insert(0, objectRule);
-        
-        // // Clear console
-        // Console.Clear();
-        //
-        // // Log the generated GBNF rules
-        // Console.WriteLine(gbnf.ToString());
-        //
-        // // Wait for readline
-        // Console.ReadLine();
 
         // Return the GBNF rules as a string
         return gbnf.ToString();
-        
-        // // Generate the GBNF grammar from the class
-        // return GenerateFromType(type);
     }
     
     public string GenerateFromType(Type type, bool isRoot = true)
@@ -185,7 +190,7 @@ public sealed class GrammarGenerator
         {
             gbnf.Append(GenerateRuleForMember(memberInfo, null));
             
-            rootRule += $"\"{JsonQuote}{memberInfo.Name}{JsonQuote}:\"{GetRuleName(memberInfo)}";
+            rootRule += $"\"{Settings.JsonQuote}{memberInfo.Name}{Settings.JsonQuote}:\"{GetRuleName(memberInfo)}";
         
             // Add a comma if it's not the last member
             if (memberInfo != memberInfos.Last())
@@ -199,12 +204,6 @@ public sealed class GrammarGenerator
 
         // Combine the root rule and the property rules
         gbnf.Insert(0, rootRule);
-        
-        // // Clear console
-        // Console.Clear();
-        //
-        // // Log the generated GBNF rules
-        // Console.WriteLine(gbnf.ToString());
 
         // Return the GBNF rules as a string
         return gbnf.ToString();
@@ -235,26 +234,26 @@ public sealed class GrammarGenerator
         // Custom rules for known types
         if (memberType == typeof(string))
         {
-            if (DefaultValueMode == DefaultValueMode.Keep)
+            if (Settings.DefaultValueMode == DefaultValueMode.Keep)
             {
                 // If the default value is not null (and not empty), we will generate a rule that just keeps the default value
                 if (defaultValue != null && (string) defaultValue != "")
                 {
-                    return $"{ruleName}::=\"{JsonQuote}{defaultValue}{JsonQuote}\"\n";
+                    return $"{ruleName}::=\"{Settings.JsonQuote}{defaultValue}{Settings.JsonQuote}\"\n";
                 }
 
             }
-            else if (DefaultValueMode == DefaultValueMode.Discard)
+            else if (Settings.DefaultValueMode == DefaultValueMode.Discard)
             {
                 // We will generate a rule that just discards the value, and allows the LLM to generate a string
                 return $"{ruleName}::=string\n";
             }
-            else if (DefaultValueMode == DefaultValueMode.Complete)
+            else if (Settings.DefaultValueMode == DefaultValueMode.Complete)
             {
                 // If the default value isn't null, and isn't empty, we allow autocompletion of the default value
                 if (defaultValue != null && (string) defaultValue != "")
                 {
-                    return $"{ruleName}::=\"{JsonQuote}{defaultValue}\" {StringRule} \"{JsonQuote}\"\n";
+                    return $"{ruleName}::=\"{Settings.JsonQuote}{defaultValue}\" {Settings.StringRule} \"{Settings.JsonQuote}\"\n";
                 }
             }
             
@@ -304,10 +303,10 @@ public sealed class GrammarGenerator
         {
             // if the default value is not null, we will generate a rule for it instead of allowing the LLM to generate a response
             // Enums always have a default value, so there is a specific setting for this
-            if (defaultValue != null && UseEnumDefaults)
-                return $"{ruleName}::=\"{JsonQuote}{defaultValue}{JsonQuote}\"\n";
+            if (defaultValue != null && Settings.UseEnumDefaults)
+                return $"{ruleName}::=\"{Settings.JsonQuote}{defaultValue}{Settings.JsonQuote}\"\n";
             
-            return $"{ruleName}::=" + string.Join("|", Enum.GetNames(memberType).Select(e => $"\"{JsonQuote}{e}{JsonQuote}\"")) + "\n";
+            return $"{ruleName}::=" + string.Join("|", Enum.GetNames(memberType).Select(e => $"\"{Settings.JsonQuote}{e}{Settings.JsonQuote}\"")) + "\n";
         }
         else if (memberType.IsArray)
         {
@@ -322,7 +321,7 @@ public sealed class GrammarGenerator
             Type elementType = memberType.GetElementType();
             
             // Check if the element type is a known type
-            if (_knownRules.ContainsKey(elementType))
+            if (commonRules.ContainsKey(elementType))
             {
                 // // Log and wait for readline
                 // Console.WriteLine($"Using existing rule for {elementType.Name}");
@@ -331,7 +330,7 @@ public sealed class GrammarGenerator
                 // Console.ReadLine();
                 
                 // Get the known rule
-                GrammarGeneratorRule knownGeneratorRule = _knownRules[elementType];
+                GrammarGeneratorRule knownGeneratorRule = commonRules[elementType];
                 
                 // Generate the array rule
                 return $"{ruleName}::=\"[\"({knownGeneratorRule.Name}(\",\"{knownGeneratorRule.Name})*)?\"]\"\n";
@@ -351,10 +350,10 @@ public sealed class GrammarGenerator
                 string elementRule = GenerateFromType(elementType, false);
                 
                 // Add the rule to the known rules
-                _knownRules.Add(elementType, new GrammarGeneratorRule(elementType.Name, elementRule));
+                commonRules.Add(elementType, new GrammarGeneratorRule(GetRuleName(elementType), elementRule));
                 
                 // Generate the array rule
-                return $"{ruleName}::=\"[\"({elementRule}(\",\"{elementRule})*)?\"]\"\n";
+                return $"{ruleName}::=\"[\"({GetRuleName(elementType)}(\",\"{GetRuleName(elementType)})*)?\"]\"\n";
             }
         }
         else
@@ -365,7 +364,7 @@ public sealed class GrammarGenerator
 
             if (defaultValue == null)
             {
-                if (InstantiateUnknownTypes)
+                if (Settings.InstantiateUnknownTypes)
                 {
                     // We will try to create an instance of the class
                     // If we fail, we will generate the rules for the type instead
@@ -375,7 +374,7 @@ public sealed class GrammarGenerator
                         object instance = Activator.CreateInstance(memberType);
 
                         // Generate the rules for the new instance
-                        classRules = GenerateFromObject(instance, false);
+                        classRules = Generate(instance, false);
                     }
                     catch (Exception e)
                     {
@@ -393,30 +392,14 @@ public sealed class GrammarGenerator
             else
             {
                 // Generate the rules for the existing instance
-                classRules = GenerateFromObject(defaultValue, false);
+                classRules = Generate(defaultValue, false);
             }
             
             // Add the rule to the known rules
-            _knownRules.Add(memberType, new GrammarGeneratorRule(memberType.Name, classRules));
+            commonRules.Add(memberType, new GrammarGeneratorRule(memberType.Name, classRules));
 
             // Return the combined rules
             return rule + classRules;
         }
     }
 }
-
-// Default value mode enum (Discard/Overwrite/Complete)
-public enum DefaultValueMode
-{
-    Keep,
-    Discard,
-    Complete
-}
-    
-// Array mode enum (Fill/Select)
-public enum ArrayMode
-{
-    Fill,
-    Select
-}
-

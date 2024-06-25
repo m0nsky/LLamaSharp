@@ -23,7 +23,7 @@ public class ObjectBasedExecutor : InteractiveExecutor
         GrammarGenerator grammarGenerator = new();
         
         // Generate grammar for the output object
-        var gbnf = grammarGenerator.GenerateFromObject(outputObj);
+        var gbnf = grammarGenerator.Generate(outputObj);
         
         // Clear the console
         Console.Clear();

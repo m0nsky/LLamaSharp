@@ -12,7 +12,7 @@ public class ExampleOutputObject
     public bool[] FiveDifferentBooleans;
     
     // Array of diary entries
-    public DiaryEntry[] DiaryEntries;
+    //public DiaryEntry[] DiaryEntries 
     
     // // Mood private
     // private Mood mood = Mood.Angry;

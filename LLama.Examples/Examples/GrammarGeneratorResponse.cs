@@ -11,7 +11,8 @@ namespace LLama.Examples.Examples
     {
         public static async Task Run()
         {
-            string modelPath = UserSettings.GetModelPath();
+            //string modelPath = UserSettings.GetModelPath();
+            string modelPath = "E:/AI/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf";
 
             var parameters = new ModelParams(modelPath)
             {
