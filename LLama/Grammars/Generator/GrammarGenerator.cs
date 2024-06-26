@@ -65,8 +65,14 @@ public sealed class GrammarGenerator
     }
     
     // Converts an object to a GBNF grammar
-    public string Generate<T>(T obj, bool isRoot = true)
+    public string Generate<T>(T obj)
     {
+        // Create a string builder to store the GBNF rules
+        StringBuilder gbnf = new StringBuilder();
+        
+        // Add the root rule
+        objectRule += $"root::={type.Name}\n";
+        
         // Check if we are dealing with an object or a class
         if (obj is object)
         {
@@ -84,9 +90,6 @@ public sealed class GrammarGenerator
             // Wait for readline
             Console.ReadLine();
         }
-        
-        // Create a string builder to store the GBNF rules
-        StringBuilder gbnf = new StringBuilder();
         
         // Get the type of the object
         Type type = obj.GetType();
@@ -151,6 +154,10 @@ public sealed class GrammarGenerator
 
         // Return the GBNF rules as a string
         return gbnf.ToString();
+    }
+    
+    public string GenerateObjectRules<T>(T obj) {
+        return "yay";
     }
     
     public string GenerateFromType(Type type, bool isRoot = true)
