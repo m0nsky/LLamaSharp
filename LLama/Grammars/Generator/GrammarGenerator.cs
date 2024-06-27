@@ -25,32 +25,32 @@ public sealed class GrammarGenerator
         // Add the common rules
         commonRules.Add(typeof(string), new GrammarGeneratorRule(
             "string", 
-            $"\"{Settings.JsonQuote}\"{Settings.StringRule}\"{Settings.JsonQuote}\"\n")
+            $"{Settings.GbnfQuote}{Settings.JsonQuote}{Settings.GbnfQuote}{Settings.StringRule}{Settings.GbnfQuote}{Settings.JsonQuote}{Settings.GbnfQuote}")
         );
         
         commonRules.Add(typeof(bool), new GrammarGeneratorRule(
             "boolean", 
-            "\"true\"|\"false\"\n")
+            $"{Settings.GbnfQuote}true{Settings.GbnfQuote}|{Settings.GbnfQuote}false{Settings.GbnfQuote}")
         );
         
         commonRules.Add(typeof(int), new GrammarGeneratorRule(
             "int", 
-            "[-]?[0-9]+\n")
+            $"[-]?[0-9]+")
         );
         
         commonRules.Add(typeof(uint), new GrammarGeneratorRule(
             "uint", 
-            "[0-9]+\n")
+            $"[0-9]+")
         );
         
         commonRules.Add(typeof(float), new GrammarGeneratorRule(
             "float", 
-            "[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[fF]?\n")
+            $"[-]?[0-9]+{Settings.GbnfQuote}.{Settings.GbnfQuote}?[0-9]*([eE][-+]?[0-9]+)?[fF]?")
         );
         
         commonRules.Add(typeof(double), new GrammarGeneratorRule(
             "double", 
-            "[-]?[0-9]+\".\"?[0-9]*([eE][-+]?[0-9]+)?[dD]?\n")
+            $"[-]?[0-9]+{Settings.GbnfQuote}.{Settings.GbnfQuote}?[0-9]*([eE][-+]?[0-9]+)?[dD]?")
         );
     }
     
@@ -72,24 +72,6 @@ public sealed class GrammarGenerator
         
         // Add the root rule
         objectRule += $"root::={type.Name}\n";
-        
-        // Check if we are dealing with an object or a class
-        if (obj is object)
-        {
-            // Log and wait for readline
-            Console.WriteLine("Generating rules for object");
-            
-            // Wait for readline
-            Console.ReadLine();
-        }
-        else
-        {
-            // Log and wait for readline
-            Console.WriteLine("Generating rules for class");
-            
-            // Wait for readline
-            Console.ReadLine();
-        }
         
         // Get the type of the object
         Type type = obj.GetType();
