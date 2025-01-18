@@ -71,16 +71,32 @@ namespace LLama.Native
                     {
                         if (systemInfo.OSPlatform == OSPlatform.OSX)
                         {
-                            // ggml-cpu
                             // On OSX, we should load the CPU backend from the current directory
-                            dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cpu{ext}"));
                             
-                            // ggml-metal
+                            // ggml-cpu
+                            dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cpu{ext}"));
+
+                            // For osx-arm64, we also need to load metal + blas
                             if (os == "osx-arm64")
+                            {
+                                // ggml-metal
                                 dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-metal{ext}"));
+                                
+                                // ggml-blas
+                                dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-blas{ext}"));
+                            }
                         }
                         else
                         {
+                            // On other platforms (Windows, Linux), we need to load the CPU backend from the specified AVX level directory
+                            // We are using the AVX level supplied by NativeLibraryConfig, which automatically detects the highest supported AVX level for us
+                            
+                            // ggml-cpu
+                            dependencyPaths.Add(Path.Combine(
+                                $"runtimes/{os}/native/{NativeLibraryConfig.AvxLevelToString(library.Metadata.AvxLevel)}",
+                                $"{libPrefix}ggml-cpu{ext}"
+                            ));
+                            
                             // ggml-cuda
                             if (library.Metadata.UseCuda)
                                 dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cuda{ext}"));
@@ -88,14 +104,6 @@ namespace LLama.Native
                             // ggml-vulkan
                             if (library.Metadata.UseVulkan)
                                 dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-vulkan{ext}"));
-                            
-                            // ggml-cpu
-                            // On other platforms (Windows, Linux), we need to load the CPU backend from the specified AVX level directory
-                            // We are using the AVX level supplied by NativeLibraryConfig, which automatically detects the highest supported AVX level for us
-                            dependencyPaths.Add(Path.Combine(
-                                $"runtimes/{os}/native/{NativeLibraryConfig.AvxLevelToString(library.Metadata.AvxLevel)}",
-                                $"{libPrefix}ggml-cpu{ext}"
-                            ));
                         }
                     }
                     
