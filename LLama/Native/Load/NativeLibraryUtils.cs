@@ -71,13 +71,13 @@ namespace LLama.Native
                     {
                         if (systemInfo.OSPlatform == OSPlatform.OSX)
                         {
-                            // ggml-metal
-                            if (os == "osx-arm64")
-                                dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-metal{ext}"));
-                            
                             // ggml-cpu
                             // On OSX, we should load the CPU backend from the current directory
                             dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cpu{ext}"));
+                            
+                            // ggml-metal
+                            if (os == "osx-arm64")
+                                dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-metal{ext}"));
                         }
                         else
                         {
