@@ -76,11 +76,15 @@ namespace LLama.Native
                             // ggml-cpu
                             dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cpu{ext}"));
 
-                            // ggml-metal
-                            dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-metal{ext}"));
+                            // For osx-arm64, we also need to load metal + blas
+                            if (os == "osx-arm64")
+                            {
+                                // ggml-metal
+                                dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-metal{ext}"));
                                 
-                            // ggml-blas
-                            dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-blas{ext}"));
+                                // ggml-blas
+                                dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-blas{ext}"));
+                            }
                         }
                         else
                         {
@@ -120,6 +124,9 @@ namespace LLama.Native
                         else
                         {
                             Log($"Failed loading dependency '{dependencyPath}'", LLamaLogLevel.Info, config.LogCallback);
+                            
+                            // Throw actual exception with same message
+                            throw new RuntimeError($"Failed to load the native library '{dependencyPath}'. Please check the log for more information.");
                         }
                     }
                     
