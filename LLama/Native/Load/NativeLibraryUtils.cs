@@ -65,17 +65,15 @@ namespace LLama.Native
                     
                     // We should always load ggml-base from the current runtime directory
                     dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-base{ext}"));
+                    
+                    // ggml-cpu (no matter which platform, we will always attempt to find and load any ggml-cpu that is bundled with this backend)
+                    dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cpu{ext}"));
 
                     // If the library has metadata, we can check if we need to load additional dependencies
                     if (library.Metadata != null)
                     {
                         if (systemInfo.OSPlatform == OSPlatform.OSX)
                         {
-                            // On OSX, we should load the CPU backend from the current directory
-                            
-                            // ggml-cpu
-                            dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cpu{ext}"));
-
                             // ggml-metal (only supported on osx-arm64)
                             if (os == "osx-arm64")
                                 dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-metal{ext}"));
@@ -85,22 +83,29 @@ namespace LLama.Native
                         }
                         else
                         {
-                            // On other platforms (Windows, Linux), we need to load the CPU backend from the specified AVX level directory
-                            // We are using the AVX level supplied by NativeLibraryConfig, which automatically detects the highest supported AVX level for us
-                            
-                            // ggml-cpu
-                            dependencyPaths.Add(Path.Combine(
-                                $"runtimes/{os}/native/{NativeLibraryConfig.AvxLevelToString(library.Metadata.AvxLevel)}",
-                                $"{libPrefix}ggml-cpu{ext}"
-                            ));
+                            // For backends that do not have a bundled ggml-cpu, we will load the detected avx level ggml-cpu
+                            string avxCpuPath =
+                                $"runtimes/{os}/native/{NativeLibraryConfig.AvxLevelToString(library.Metadata.AvxLevel)}";
 
-                            // ggml-cuda
+                            // CUDA
                             if (library.Metadata.UseCuda)
+                            {
+                                // ggml-cpu (from detected/override avx level)
+                                dependencyPaths.Add(Path.Combine(avxCpuPath,$"{libPrefix}ggml-cpu{ext}"));
+                                
+                                // ggml-cuda
                                 dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cuda{ext}"));
-                    
-                            // ggml-vulkan
+                            }
+                            
+                            // Vulkan
                             if (library.Metadata.UseVulkan)
+                            {
+                                // ggml-cpu (from detected/override avx level)
+                                dependencyPaths.Add(Path.Combine(avxCpuPath,$"{libPrefix}ggml-cpu{ext}"));
+                                
+                                // ggml-vulkan
                                 dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-vulkan{ext}"));
+                            }
                         }
                     }
                     
