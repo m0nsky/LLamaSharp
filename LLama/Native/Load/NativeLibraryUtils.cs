@@ -59,15 +59,15 @@ namespace LLama.Native
                         Log($"Failed to get the directory of the current runtime from path '{path}'", LLamaLogLevel.Error, config.LogCallback);
                         continue;
                     }
-
-                    // List which will hold all paths to dependencies to load
-                    var dependencyPaths = new List<string>();
+                    
+                    // Dictionary (directoryName, libraryName) for our dependencies to load
+                    var dependencyEntries = new Dictionary<string, string>();
                     
                     // We should always load ggml-base from the current runtime directory
-                    dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-base{ext}"));
+                    dependencyEntries.Add(currentRuntimeDirectory, "ggml-base");
                     
                     // ggml-cpu (no matter which platform, we will always attempt to find and load any ggml-cpu that is bundled with this backend)
-                    dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cpu{ext}"));
+                    dependencyEntries.Add(currentRuntimeDirectory, "ggml-cpu");
 
                     // If the library has metadata, we can check if we need to load additional dependencies
                     if (library.Metadata != null)
@@ -76,56 +76,60 @@ namespace LLama.Native
                         {
                             // ggml-metal (only supported on osx-arm64)
                             if (os == "osx-arm64")
-                                dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-metal{ext}"));
+                                dependencyEntries.Add(currentRuntimeDirectory, "ggml-metal");
                             
                             // ggml-blas (osx-x64, osx-x64-rosetta2 and osx-arm64 all have blas)
-                            dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-blas{ext}"));
+                            dependencyEntries.Add(currentRuntimeDirectory, "ggml-blas");
                         }
                         else
                         {
-                            // For backends that do not have a bundled ggml-cpu, we will load the detected avx level ggml-cpu
-                            string avxCpuPath =
+                            // For backends that do not have a bundled ggml-cpu, we will load the detected/override AVX level ggml-cpu
+                            string avxCpuDirectory =
                                 $"runtimes/{os}/native/{NativeLibraryConfig.AvxLevelToString(library.Metadata.AvxLevel)}";
 
                             // CUDA
                             if (library.Metadata.UseCuda)
                             {
                                 // ggml-cpu (from detected/override avx level)
-                                dependencyPaths.Add(Path.Combine(avxCpuPath,$"{libPrefix}ggml-cpu{ext}"));
+                                dependencyEntries.Add(avxCpuDirectory, "ggml-cpu");
                                 
                                 // ggml-cuda
-                                dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-cuda{ext}"));
+                                dependencyEntries.Add(currentRuntimeDirectory, "ggml-cuda");
                             }
                             
                             // Vulkan
                             if (library.Metadata.UseVulkan)
                             {
                                 // ggml-cpu (from detected/override avx level)
-                                dependencyPaths.Add(Path.Combine(avxCpuPath,$"{libPrefix}ggml-cpu{ext}"));
+                                dependencyEntries.Add(avxCpuDirectory, "ggml-cpu");
                                 
                                 // ggml-vulkan
-                                dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml-vulkan{ext}"));
+                                dependencyEntries.Add(currentRuntimeDirectory, "ggml-vulkan");
                             }
                         }
                     }
                     
                     // And finally, we can add ggml
-                    dependencyPaths.Add(Path.Combine(currentRuntimeDirectory, $"{libPrefix}ggml{ext}"));
+                    dependencyEntries.Add(currentRuntimeDirectory, "ggml");
                     
-                    // Now, we will loop through our dependencyPaths and try to load them one by one
-                    foreach (var dependencyPath in dependencyPaths)
+                    // Now, we will loop through our dependencyEntries and try to load them one by one
+                    foreach (var (dependencyDirectory, dependencyName) in dependencyEntries)
                     {
                         // Try to load the dependency
-                        var dependencyResult = TryLoad(dependencyPath, description.SearchDirectories, config.LogCallback);
+                        var dependencyResult = TryLoad(
+                                Path.Combine(dependencyDirectory, $"{libPrefix}{dependencyName}{ext}"), 
+                                description.SearchDirectories, 
+                                config.LogCallback
+                            );
                         
                         // If we successfully loaded the library, log it
                         if (dependencyResult != IntPtr.Zero)
                         {
-                            Log($"Successfully loaded dependency '{dependencyPath}'", LLamaLogLevel.Info, config.LogCallback);
+                            Log($"Successfully loaded dependency '{dependencyName}' from directory '{dependencyDirectory}'", LLamaLogLevel.Info, config.LogCallback);
                         }
                         else
                         {
-                            Log($"Failed loading dependency '{dependencyPath}'", LLamaLogLevel.Info, config.LogCallback);
+                            Log($"Failed loading dependency '{dependencyName}' from directory '{dependencyDirectory}'", LLamaLogLevel.Info, config.LogCallback);
                         }
                     }
                     
