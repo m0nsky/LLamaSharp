@@ -1,84 +1,84 @@
-// Import necessary namespaces from LLama libraries and .NET standard libraries.
-using LLama.Abstractions;                  // Provides interface definitions and abstract classes for LLama.
-using LLama.Common;                        // Contains common utilities and helper classes.
-using LLama.Native;                        // Contains definitions and interop wrappers for native LLama functions.
-using System;                              // Contains basic system definitions.
-using System.Collections.Generic;          // Provides generic collections like List<T>.
-using System.IO;                           // Provides types for file I/O.
-using System.Linq;                         // Provides LINQ query capabilities.
-using System.Text.Json;                    // Provides JSON serialization and deserialization.
-using System.Text.Json.Serialization;     // Provides attributes and converters for JSON serialization.
-using System.Threading.Tasks;              // Provides types for asynchronous programming.
-using LLama.Exceptions;                    // Contains custom exceptions for LLama.
-using LLama.Sampling;                      // Provides classes and interfaces for token sampling methods.
-using Microsoft.Extensions.Logging;        // Provides logging functionalities.
+using LLama.Abstractions;
+using LLama.Common;
+using LLama.Native;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+using LLama.Exceptions;
+using LLama.Sampling;
+using Microsoft.Extensions.Logging;
 
 namespace LLama
 {
     /// <summary>
     /// The LLama executor for instruct mode.
-    /// This class handles generation in "instruct" mode, which uses a structured template
-    /// (with instruction prefix and suffix) to guide the model's responses.
+    /// In instruct mode the executor guides the model's responses using a structured template.
+    /// It uses an instruction prefix and suffix to delineate the instruction and the expected response.
+    /// Like InteractiveExecutor, it leverages the base class for context management, session handling,
+    /// and asynchronous streaming inference via InferAsync.
     /// </summary>
-    public class InstructExecutor : StatefulExecutorBase // Inherits from StatefulExecutorBase for stateful execution.
+    public class InstructExecutor
+        : StatefulExecutorBase
     {
-        // Field to track whether the executor is processing the initial prompt.
+        // Indicates whether the executor is processing the initial prompt.
         private bool _is_prompt_run = true;
-
-        // Holds the instruction prefix string (e.g., "\n\n### Instruction:\n\n") that helps guide the model.
+        // Holds the instruction prefix string (e.g., "\n\n### Instruction:\n\n") to be added before user input.
         private readonly string _instructionPrefix;
-        // Holds the tokenized version of the instruction prefix.
+        // Tokenized version of the instruction prefix.
         private LLamaToken[] _inp_pfx;
-        // Holds the tokenized version of the instruction suffix (e.g., "\n\n### Response:\n\n").
+        // Tokenized version of the instruction suffix (e.g., "\n\n### Response:\n\n") to be added after user input.
         private LLamaToken[] _inp_sfx;
 
-        // Optional reference to a sampling pipeline (declared here but not directly used in the snippet).
+        // Optional reference to a sampling pipeline (configured externally if needed).
         private ISamplingPipeline? _pipeline;
 
         /// <summary>
-        /// Constructs a new InstructExecutor with a given context, instruction prefix and suffix, and an optional logger.
+        /// Constructs an InstructExecutor with the given LLamaContext, instruction template, and optional logger.
+        /// The instruction prefix and suffix are tokenized immediately for later use in input preprocessing.
         /// </summary>
-        /// <param name="context">The LLama context used for tokenization and inference.</param>
+        /// <param name="context">The LLama context used for tokenization, inference, and model properties.</param>
         /// <param name="instructionPrefix">
-        /// The instruction prefix string that is prepended to user prompts.
+        /// The instruction prefix string that is prepended to the user prompt.
         /// Defaults to "\n\n### Instruction:\n\n".
         /// </param>
         /// <param name="instructionSuffix">
         /// The instruction suffix string that is appended after the user prompt.
         /// Defaults to "\n\n### Response:\n\n".
         /// </param>
-        /// <param name="logger">An optional logger for diagnostic output.</param>
-        public InstructExecutor(
-            LLamaContext context,
-            string instructionPrefix = "\n\n### Instruction:\n\n",
-            string instructionSuffix = "\n\n### Response:\n\n",
-            ILogger? logger = null)
-            : base(context, logger) // Passes the context and logger to the base class constructor.
+        /// <param name="logger">Optional logger for diagnostics.</param>
+        public InstructExecutor(LLamaContext context,
+                                string instructionPrefix = "\n\n### Instruction:\n\n",
+                                string instructionSuffix = "\n\n### Response:\n\n",
+                                ILogger? logger = null)
+            : base(context, logger)
         {
-            // Tokenize the instruction prefix with the beginning-of-sequence token (BOS) added.
+            // Tokenize the instruction prefix with a beginning-of-sequence token.
             _inp_pfx = Context.Tokenize(instructionPrefix, true, true);
             // Tokenize the instruction suffix without adding a BOS token.
             _inp_sfx = Context.Tokenize(instructionSuffix, false, true);
-            // Store the instruction prefix string.
             _instructionPrefix = instructionPrefix;
         }
 
         /// <inheritdoc />
         public override ExecutorBaseState GetStateData()
         {
-            // Capture the current state of the executor in an InstructExecutorState object.
+            // Package the current state into an InstructExecutorState.
+            // This includes both the shared state (from the base class) and instruct-specific tokens.
             InstructExecutorState state = new()
             {
-                // Inherited state fields from the base class:
                 ConsumedSessionCount = _n_session_consumed,
                 EmbedInps = _embed_inps.ToArray(),
                 IsPromptRun = _is_prompt_run,
                 ConsumedTokensCount = _consumedTokensCount,
                 Embeds = _embeds.ToArray(),
                 LastTokens = _last_n_tokens.ToArray(),
-                // Specific to instruct mode: include the tokenized instruction prefix.
+                // Instruct-specific state: tokenized instruction prefix.
                 InputPrefixTokens = _inp_pfx,
-                // Specific to instruct mode: include the tokenized instruction suffix.
+                // Instruct-specific state: tokenized instruction suffix.
                 InputSuffixTokens = _inp_sfx,
                 MatchingSessionTokensCount = _n_matching_session_tokens,
                 PastTokensCount = _pastTokensCount,
@@ -86,17 +86,14 @@ namespace LLama
                 SessionTokens = _session_tokens.ToArray(),
                 LastTokensCapacity = _last_n_tokens.Capacity,
             };
-            // Return the constructed state object.
             return state;
         }
-
         /// <inheritdoc />
         public override Task LoadState(ExecutorBaseState data)
         {
-            // Attempt to cast the provided state data to InstructExecutorState.
-            if (data is InstructExecutorState state)
+            if(data is InstructExecutorState state)
             {
-                // Restore the inherited state fields.
+                // Restore shared state from the base class.
                 _n_session_consumed = state.ConsumedSessionCount;
                 _embed_inps = state.EmbedInps.ToList();
                 _is_prompt_run = state.IsPromptRun;
@@ -113,36 +110,27 @@ namespace LLama
             }
             else
             {
-                // If the provided state is not of the expected type, throw an exception.
                 throw new ArgumentException("Invalid state data type.");
             }
 
-            // Return a completed task (no asynchronous work needed).
             return Task.CompletedTask;
         }
 
         /// <inheritdoc />
         public override async Task SaveState(string filename)
         {
-            // Retrieve the current state data.
             var state = (InstructExecutorState)GetStateData();
-            // Open a file stream to create or overwrite the file.
             using (var fs = new FileStream(filename, FileMode.Create, FileAccess.Write))
             {
-                // Serialize the state asynchronously to JSON and write it to the file.
                 await JsonSerializer.SerializeAsync(fs, state);
             }
         }
-
         /// <inheritdoc />
         public override async Task LoadState(string filename)
         {
-            // Open the file for reading.
             using (var fs = new FileStream(filename, FileMode.Open, FileAccess.Read))
             {
-                // Deserialize the JSON content into an InstructExecutorState object.
                 var state = await JsonSerializer.DeserializeAsync<InstructExecutorState>(fs);
-                // Load the deserialized state.
                 await LoadState(state);
             }
         }
@@ -150,31 +138,26 @@ namespace LLama
         /// <inheritdoc />
         protected override Task<bool> GetLoopCondition(InferStateArgs args)
         {
-            // The generation loop continues if there are remaining tokens to generate
-            // or if we are still processing the initial prompt.
+            // Continue generation as long as there are remaining tokens,
+            // or if the initial prompt run has not yet finished.
             return Task.FromResult(args.RemainedTokens != 0 || _is_prompt_run);
         }
 
         /// <inheritdoc />
         protected override Task PreprocessInputs(string? text, InferStateArgs args)
         {
-            // Ensure that the antiprompt list is not null.
-            // NOTE: The following line uses a null-coalescing assignment. In valid C#,
-            // it should assign an empty list if args.Antiprompts is null.
+            // Ensure the antiprompt list exists.
             args.Antiprompts ??= new List<string>();
-
-            // If the antiprompt list does not already contain the instruction prefix,
-            // add it. This helps the model understand where an instruction begins.
+            // Add the instruction prefix to the antiprompt list if it's not already present.
+            // This helps signal to the model where the instruction begins.
             if (!args.Antiprompts.Contains(_instructionPrefix))
                 args.Antiprompts.Add(_instructionPrefix);
 
-            // If this is the initial prompt run...
             if (_is_prompt_run)
             {
-                // The provided prompt text must not be null; otherwise, throw an exception.
-                if (text == null)
-                    throw new ArgumentException("Prompt cannot be null to trigger continuation if a prompt has not been provided previously.");
-                // Tokenize the prompt text with BOS and set the list of input tokens.
+                // For the first (initial) prompt run, the prompt must be provided.
+                if (text == null) throw new ArgumentException("Prompt cannot be null to trigger continuation if a prompt has not been provided previously.");
+                // Tokenize the prompt with a BOS token.
                 _embed_inps = Context.Tokenize(text, true, true).ToList();
             }
             else
@@ -182,107 +165,95 @@ namespace LLama
                 // For continuation requests, mark that all previous input tokens have been processed.
                 _consumedTokensCount = _embed_inps.Count;
 
-                // When a new prompt text is provided (non-null), process it:
+                // If new text is provided, process it:
                 if (text != null)
                 {
-                    // Ensure the prompt ends with a newline to delimit it.
+                    // Ensure the prompt ends with a newline.
                     if (!text.EndsWith("\n"))
                     {
                         text += "\n";
                     }
-                    // Append the tokenized instruction prefix (template) to the input tokens.
+                    // Append the tokenized instruction prefix before the new input.
                     _embed_inps.AddRange(_inp_pfx);
 
-                    // Tokenize the new input text without adding a BOS token.
+                    // Tokenize the new input text (without adding a BOS token).
                     var line_inp = Context.Tokenize(text, false, true);
-                    // Append the tokenized user input.
                     _embed_inps.AddRange(line_inp);
 
-                    // Append the tokenized instruction suffix (template) to the input tokens.
+                    // Append the tokenized instruction suffix after the new input.
                     _embed_inps.AddRange(_inp_sfx);
 
-                    // Deduct the number of tokens in the user input from the remaining tokens budget.
+                    // Adjust the remaining token count based on the user input.
                     args.RemainedTokens -= line_inp.Length;
                 }
             }
 
-            // Return a completed task as no asynchronous work is needed here.
             return Task.CompletedTask;
         }
 
         /// <inheritdoc />
         protected override async Task<(bool, IReadOnlyList<string>)> PostProcess(IInferenceParams inferenceParams, InferStateArgs args)
         {
-            // If all input tokens have been consumed...
             if (_embed_inps.Count <= _consumedTokensCount)
             {
-                // Check if the last generated tokens end with any of the antiprompts.
+                // Check if the generated tokens end with any of the antiprompts (including the instruction prefix).
                 if (_last_n_tokens.TokensEndsWithAnyString(args.Antiprompts, Context.NativeHandle.ModelHandle, Context.Encoding))
                 {
-                    // If so, signal that we should wait for further input.
                     args.WaitForInput = true;
                     return (true, Array.Empty<string>());
                 }
 
-                // If some tokens have been processed and we're waiting for input,
-                // return a prompt indicator (here, "\n> ") to signal the user.
+                // If some tokens have been processed and we are waiting for user input,
+                // emit a prompt indicator (here, "\n> ").
                 if (_pastTokensCount > 0 && args.WaitForInput)
                 {
                     return (true, new[] { "\n> " });
                 }
             }
 
-            // If the last generated token is the End-Of-Sequence (EOS) token...
+            // If the last generated token is EOS, signal to wait for further input.
             if (_embeds.Count > 0 && _embeds.Last() == Context.Vocab.EOS)
             {
-                // Set the flag to wait for user input.
                 args.WaitForInput = true;
             }
 
-            // If the token budget is exhausted (and a max tokens limit is specified)...
+            // If the token generation budget is exhausted and a maximum is set, reset the budget and wait.
             if (args.RemainedTokens <= 0 && inferenceParams.MaxTokens != -1)
             {
-                // Reset the remaining tokens to the maximum allowed and set the flag to wait.
                 args.RemainedTokens = inferenceParams.MaxTokens;
                 args.WaitForInput = true;
             }
-            // Continue generation.
             return (false, Array.Empty<string>());
         }
 
         /// <inheritdoc />
         protected override async Task InferInternal(IInferenceParams inferenceParams, InferStateArgs args)
         {
-            // Create a new batch for token decoding/inference.
             var batch = new LLamaBatch();
 
-            // If there are tokens waiting to be processed in the embeds list...
             if (_embeds.Count > 0)
             {
-                // Mark that the initial prompt run has completed.
+                // Mark the end of the initial prompt run.
                 _is_prompt_run = false;
-                // Check if adding the new tokens would exceed the model's context window.
+                // For instruct mode, if the current tokens plus past tokens exceed the context window,
+                // always keep the full input token size (i.e. the entire prompt with instruction template).
                 if (_pastTokensCount + _embeds.Count > Context.ContextSize)
                 {
-                    // For instruct mode, always keep the entire input token size.
                     var tokensToKeep = _embed_inps.Count;
-                    // Handle the case where the context window is exceeded.
                     HandleRunOutOfContext(tokensToKeep);
                 }
 
-                // Attempt to reuse a matching prefix from session history to reduce computation.
+                // Attempt to reuse a matching prefix from a saved session, leveraging base class functionality.
                 TryReuseMatchingPrefix();
 
-                // Decode the tokens currently in _embeds.
-                // The returned tuple contains the decode result, an unused value, and the updated past tokens count.
+                // Decode the current tokens in _embeds.
                 var (result, _, pastTokensCount) = await Context.DecodeAsync(_embeds, LLamaSeqId.Zero, batch, _pastTokensCount);
                 _pastTokensCount = pastTokensCount;
 
-                // If decoding did not complete successfully, throw an exception.
                 if (result != DecodeResult.Ok)
                     throw new LLamaDecodeError(result);
 
-                // If a session file is being used, append the processed tokens to the session history.
+                // If using a session file, update the session tokens history.
                 if (_embeds.Count > 0 && !string.IsNullOrEmpty(_pathSession))
                 {
                     _session_tokens.AddRange(_embeds);
@@ -290,13 +261,12 @@ namespace LLama
                 }
             }
 
-            // Clear the embeds list now that its tokens have been processed.
+            // Clear _embeds after processing.
             _embeds.Clear();
 
-            // If all input tokens have been consumed and we're not waiting for new input...
             if (_embed_inps.Count <= _consumedTokensCount && !args.WaitForInput)
             {
-                // Optionally save the session on the first sample for faster future prompt loading.
+                // Optionally save the session to disk on the first sample to accelerate future prompt loading.
                 if (!string.IsNullOrEmpty(_pathSession) && args.NeedToSaveSession)
                 {
                     args.NeedToSaveSession = false;
@@ -304,29 +274,22 @@ namespace LLama
                 }
 
                 // Sample the next token using the sampling pipeline.
-                // Note: 'batch.TokenCount - 1' represents the current position in the batch.
                 var id = inferenceParams.SamplingPipeline.Sample(Context.NativeHandle, batch.TokenCount - 1);
 
-                // Add the sampled token to the history of recently generated tokens.
                 _last_n_tokens.Enqueue(id);
-                // Add the sampled token to the embeds list to be processed.
                 _embeds.Add(id);
 
-                // Decrement the remaining token counter.
                 args.RemainedTokens--;
-                // Signal that a token was generated.
                 args.ReturnValue = true;
             }
             else
             {
-                // If there are pending input tokens that have not been processed,
-                // transfer them to the embeds list until the batch is full.
+                // If there are pending input tokens, move them into the current batch until the batch is full.
                 while (_embed_inps.Count > _consumedTokensCount)
                 {
                     _embeds.Add(_embed_inps[_consumedTokensCount]);
                     _last_n_tokens.Enqueue(_embed_inps[_consumedTokensCount]);
                     _consumedTokensCount++;
-                    // Stop adding tokens once the current batch size limit is reached.
                     if (_embeds.Count >= Context.BatchSize)
                     {
                         break;
@@ -334,13 +297,12 @@ namespace LLama
                 }
             }
 
-            // End of inference processing.
             return;
         }
-
         /// <summary>
         /// The descriptor of the state of the instruct executor.
-        /// This state object extends the base state with instruct-specific data.
+        /// This state object extends the base state with instruct-specific data
+        /// (namely, the tokenized instruction prefix and suffix).
         /// </summary>
         public class InstructExecutorState : ExecutorBaseState
         {
@@ -349,13 +311,11 @@ namespace LLama
             /// </summary>
             [JsonPropertyName("is_prompt_run")]
             public bool IsPromptRun { get; set; }
-
             /// <summary>
             /// Tokenized instruction prefix tokens.
             /// </summary>
             [JsonPropertyName("inp_pfx")]
             public LLamaToken[] InputPrefixTokens { get; set; }
-
             /// <summary>
             /// Tokenized instruction suffix tokens.
             /// </summary>
