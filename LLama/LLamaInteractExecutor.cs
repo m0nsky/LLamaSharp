@@ -1,495 +1,477 @@
-// Import necessary namespaces from LLama libraries and .NET standard libraries.
-using LLama.Common;                        // Provides common utility classes and helper functions for the LLama project.
-using LLama.Native;                        // Contains definitions and interop wrappers for native LLama functions.
-using LLama.Abstractions;                  // Provides interface definitions and abstract classes for LLama.
-using System;                              // Contains basic system definitions.
-using System.Collections.Generic;          // Provides generic collection classes (e.g., List<T>).
-using System.IO;                           // Provides types for file I/O.
-using System.Linq;                         // Provides LINQ query capabilities.
-using System.Text.Json;                    // Provides JSON serialization and deserialization.
-using System.Text.Json.Serialization;     // Provides attributes and converters for JSON serialization.
-using System.Threading.Tasks;              // Provides types for asynchronous programming.
-using LLama.Exceptions;                    // Contains custom exception types used within the LLama project.
-using LLama.Sampling;                      // Contains classes and interfaces related to token sampling methods.
-using Microsoft.Extensions.Logging;        // Provides logging functionalities.
+// Import common utility classes and helper functions for the LLama project.
+using LLama.Common;                        // Provides general-purpose utilities.
+// Import definitions and interop wrappers for native LLama functions.
+using LLama.Native;                        // Enables interop with native code.
+// Import interface definitions and abstract classes for LLama.
+using LLama.Abstractions;                  // Defines base types and interfaces.
+// Import basic system definitions.
+using System;                              // Provides fundamental system types.
+// Import generic collection classes (e.g., List<T>).
+using System.Collections.Generic;          // Enables use of collections such as List, Dictionary, etc.
+// Import types for file input/output operations.
+using System.IO;                           // Enables file reading and writing operations.
+// Import LINQ query capabilities.
+using System.Linq;                         // Provides LINQ extension methods for collections.
+// Import JSON serialization and deserialization types.
+using System.Text.Json;                    // Used for converting objects to/from JSON.
+// Import JSON serialization attributes and converters.
+using System.Text.Json.Serialization;     // Allows customization of JSON output/input.
+// Import types for asynchronous programming (e.g., Task, async/await).
+using System.Threading.Tasks;              // Enables asynchronous methods and operations.
+// Import custom exception types for the LLama project.
+using LLama.Exceptions;                    // Defines project-specific exceptions.
+// Import token sampling classes and interfaces.
+using LLama.Sampling;                      // Contains sampling methods for token generation.
+// Import logging functionalities.
+using Microsoft.Extensions.Logging;        // Provides logging support.
 
-namespace LLama
+namespace LLama  // Define the namespace for the LLama project.
 {
     /// <summary>
     /// The LLama executor for interactive mode.
-    /// This class handles interactive generation of text (and optionally image embeddings)
-    /// by managing state, tokenization, context management, and sampling.
+    /// In interactive mode, this class handles text generation (and optionally image embeddings)
+    /// in a streaming, asynchronous fashion. It manages state, tokenization, context management,
+    /// session handling (including context recycling via HandleRunOutOfContext and TryReuseMatchingPrefix),
+    /// and token sampling.
     /// </summary>
-    public class InteractiveExecutor : StatefulExecutorBase // Inherits from StatefulExecutorBase, which manages state and shared functionality.
+    public class InteractiveExecutor : StatefulExecutorBase  // Inherit from StatefulExecutorBase to reuse common state logic.
     {
-        // Field to track whether the executor is processing the initial prompt.
-        private bool _is_prompt_run = true;
+        // Field indicating whether the executor is processing the initial prompt.
+        private bool _is_prompt_run = true;  // True if the initial prompt is still being processed; false afterward.
         
-        // Fields related to LLava (likely used for multimodal/image embedding support):
-        // Stores the position in the token list where image embeddings should be inserted.
-        private int _EmbedImagePosition = -1;
-        // Holds safe handles for image embeddings; these encapsulate image data for processing.
-        private List<SafeLlavaImageEmbedHandle> _imageEmbedHandles = new List<SafeLlavaImageEmbedHandle>();
-        // Indicates if the current prompt contains an embedded image (i.e. the "<image>" tag is present).
-        private bool _imageInPrompt = false;
-
-        // An optional sampling pipeline reference (note: in this snippet, it is declared but not used directly).
-        private ISamplingPipeline? _pipeline;
+        // Field for multimodal support: holds the index in the token sequence for image embedding insertion.
+        private int _EmbedImagePosition = -1;  // Initialized to -1 meaning no image embedding position is currently set.
+        // Field for multimodal support: stores safe handles for image embeddings created from in-memory images.
+        private List<SafeLlavaImageEmbedHandle> _imageEmbedHandles = new List<SafeLlavaImageEmbedHandle>();  // Starts as an empty list.
+        // Field for multimodal support: indicates if the current prompt contains an image tag ("<image>").
+        private bool _imageInPrompt = false;  // False by default; set to true when an "<image>" tag is detected.
+        
+        // Optional reference to a sampling pipeline; it may be configured externally.
+        private ISamplingPipeline? _pipeline;  // Nullable field; not used directly in this file.
 
         /// <summary>
-        /// Constructor for InteractiveExecutor using a LLamaContext and an optional logger.
+        /// Constructs an InteractiveExecutor using the provided LLamaContext and an optional logger.
+        /// Relies on the base class for initializing common state and streaming inference.
         /// </summary>
-        /// <param name="context">The LLama context used for tokenization and inference.</param>
-        /// <param name="logger">Optional logger for diagnostic output.</param>
-        public InteractiveExecutor(LLamaContext context, ILogger? logger = null)
-            : base(context, logger) // Passes the context and logger to the base class constructor.
+        /// <param name="context">The LLama context used for tokenization, inference, and accessing model properties.</param>
+        /// <param name="logger">Optional logger for diagnostics.</param>
+        public InteractiveExecutor(LLamaContext context, ILogger? logger = null)  // Constructor with required context and optional logger.
+            : base(context, logger)  // Pass context and logger to the base class constructor.
         {
+            // No additional initialization required here.
         }
         
         /// <summary>
-        /// Overloaded constructor that also accepts a LLavaWeights (e.g., for multimodal models).
+        /// Overloaded constructor that additionally accepts a LLavaWeights instance for multimodal processing.
         /// </summary>
-        /// <param name="context">The LLama context for tokenization and inference.</param>
-        /// <param name="clipModel">The LLavaWeights (CLIP model) used for image embeddings.</param>
-        /// <param name="logger">Optional logger for diagnostic output.</param>
-        public InteractiveExecutor(LLamaContext context, LLavaWeights clipModel, ILogger? logger = null)
-            : base(context, clipModel, logger) // Passes the context, clipModel, and logger to the base class.
+        /// <param name="context">The LLama context.</param>
+        /// <param name="clipModel">The LLavaWeights (CLIP model) for image embeddings.</param>
+        /// <param name="logger">Optional logger for diagnostics.</param>
+        public InteractiveExecutor(LLamaContext context, LLavaWeights clipModel, ILogger? logger = null)  // Constructor including a multimodal model.
+            : base(context, clipModel, logger)  // Call the base constructor with context, clip model, and logger.
         {
+            // No extra initialization needed.
         }        
 
-        /// <inheritdoc />
-        public override ExecutorBaseState GetStateData()
+        /// <summary>
+        /// Captures the current state of the executor into an InteractiveExecutorState object.
+        /// This includes tokens processed so far, session and prompt state, and recent token history.
+        /// </summary>
+        /// <returns>An ExecutorBaseState representing the current state.</returns>
+        public override ExecutorBaseState GetStateData()  // Override method to capture internal state.
         {
-            // Capture the current state of the executor in an InteractiveExecutorState object.
+            // Create a new state object and populate its properties with the current field values.
             InteractiveExecutorState state = new()
             {
-                // The number of session tokens that have been consumed.
-                ConsumedSessionCount = _n_session_consumed,
-                // The pending input tokens (converted to an array).
-                EmbedInps = _embed_inps.ToArray(),
-                // Whether the executor is still running the initial prompt.
-                IsPromptRun = _is_prompt_run,
-                // Number of tokens that have already been processed.
-                ConsumedTokensCount = _consumedTokensCount,
-                // The tokens that have been embedded/decoded so far.
-                Embeds = _embeds.ToArray(),
-                // A fixed-size queue of the last generated tokens (for context/repetition handling).
-                LastTokens = _last_n_tokens.ToArray(),
-                // The count of tokens matching the session (used for reusing context).
-                MatchingSessionTokensCount = _n_matching_session_tokens,
-                // Total count of past tokens processed.
-                PastTokensCount = _pastTokensCount,
-                // File path used for saving or loading session data.
-                SessionFilePath = _pathSession,
-                // The session tokens stored so far.
-                SessionTokens = _session_tokens.ToArray(),
-                // The capacity of the fixed-size last tokens queue.
-                LastTokensCapacity = _last_n_tokens.Capacity,
+                ConsumedSessionCount = _n_session_consumed,            // Number of session tokens already processed.
+                EmbedInps = _embed_inps.ToArray(),                       // Convert pending input tokens to an array.
+                IsPromptRun = _is_prompt_run,                            // Whether we are still processing the initial prompt.
+                ConsumedTokensCount = _consumedTokensCount,              // Number of tokens consumed from the input.
+                Embeds = _embeds.ToArray(),                              // Array of tokens that have been generated.
+                LastTokens = _last_n_tokens.ToArray(),                   // Array of the most recent tokens generated.
+                MatchingSessionTokensCount = _n_matching_session_tokens, // Count of tokens matching session history.
+                PastTokensCount = _pastTokensCount,                      // Total count of tokens processed in the past.
+                SessionFilePath = _pathSession,                          // File path for saving/loading session data.
+                SessionTokens = _session_tokens.ToArray(),               // Array of tokens stored in the session.
+                LastTokensCapacity = _last_n_tokens.Capacity,            // The capacity of the fixed-size last tokens queue.
             };
-            // Return the serialized state.
-            return state;
+            return state;  // Return the fully populated state object.
         }
         
-        /// <inheritdoc />
-        public override Task LoadState(ExecutorBaseState data)
+        /// <summary>
+        /// Restores the internal state from a provided ExecutorBaseState.
+        /// Expects the state to be of type InteractiveExecutorState.
+        /// </summary>
+        /// <param name="data">The state data to restore.</param>
+        /// <returns>A completed Task.</returns>
+        public override Task LoadState(ExecutorBaseState data)  // Override method to load internal state.
         {
-            // Attempt to cast the provided state data to InteractiveExecutorState.
+            // Check if the provided data is of the expected type.
             if (data is InteractiveExecutorState state)
             {
-                // Restore all internal state fields from the saved state.
-                _n_session_consumed = state.ConsumedSessionCount;
-                _embed_inps = state.EmbedInps.ToList();
-                _is_prompt_run = state.IsPromptRun;
-                _consumedTokensCount = state.ConsumedTokensCount;
-                _embeds = state.Embeds.ToList();
-                // Reconstruct the fixed-size queue of last tokens with its original capacity and contents.
-                _last_n_tokens = new FixedSizeQueue<LLamaToken>(state.LastTokensCapacity, state.LastTokens);
-                _n_matching_session_tokens = state.MatchingSessionTokensCount;
-                _pastTokensCount = state.PastTokensCount;
-                _pathSession = state.SessionFilePath;
-                _session_tokens = state.SessionTokens.ToList();
+                _n_session_consumed = state.ConsumedSessionCount;  // Restore the count of consumed session tokens.
+                _embed_inps = state.EmbedInps.ToList();              // Restore the pending input tokens.
+                _is_prompt_run = state.IsPromptRun;                  // Restore whether we are still in the prompt run.
+                _consumedTokensCount = state.ConsumedTokensCount;    // Restore how many input tokens have been consumed.
+                _embeds = state.Embeds.ToList();                     // Restore the list of generated tokens.
+                _last_n_tokens = new FixedSizeQueue<LLamaToken>(state.LastTokensCapacity, state.LastTokens);  // Recreate the fixed-size queue with its original capacity and content.
+                _n_matching_session_tokens = state.MatchingSessionTokensCount;  // Restore count of matching session tokens.
+                _pastTokensCount = state.PastTokensCount;            // Restore the total count of past tokens.
+                _pathSession = state.SessionFilePath;                // Restore the session file path.
+                _session_tokens = state.SessionTokens.ToList();      // Restore the session tokens list.
             }
-            else
-                // If the provided state is not of the expected type, throw an exception.
-                throw new ArgumentException("Invalid state data type.");
-
-            // Return a completed task (this method completes synchronously).
-            return Task.CompletedTask;
+            else  // If the provided state is not of the expected type:
+                throw new ArgumentException("Invalid state data type.");  // Throw an exception indicating the error.
+                
+            return Task.CompletedTask;  // Return a task indicating that state loading is complete.
         }
         
-        /// <inheritdoc />
-        public override async Task SaveState(string filename)
-        {
-            // Retrieve the current state of the executor.
-            var state = (InteractiveExecutorState)GetStateData();
-            // Open a file stream to create or overwrite the specified file.
-            using(var fs = new FileStream(filename, FileMode.Create, FileAccess.Write))
-            {
-                // Serialize the state object to JSON asynchronously and write it to the file.
-                await JsonSerializer.SerializeAsync(fs, state);
-            }
-        }
-        
-        /// <inheritdoc />
-        public override async Task LoadState(string filename)
-        {
-            // Open the specified file for reading.
-            using (var fs = new FileStream(filename, FileMode.Open, FileAccess.Read))
-            {
-                // Asynchronously deserialize the JSON content into an InteractiveExecutorState.
-                var state = await JsonSerializer.DeserializeAsync<InteractiveExecutorState>(fs);
-                // Load the deserialized state into the executor.
-                await LoadState(state);
-            }
-        }
-
         /// <summary>
-        /// Define whether to continue the loop to generate responses.
+        /// Asynchronously saves the current executor state to a file in JSON format.
         /// </summary>
-        /// <returns>
-        /// A Task that resolves to a boolean indicating whether generation should continue.
-        /// Generation continues if there are remaining tokens and we are not waiting for new input,
-        /// or if we are still processing the initial prompt.
-        /// </returns>
-        protected override Task<bool> GetLoopCondition(InferStateArgs args)
+        /// <param name="filename">The file path where the state should be saved.</param>
+        /// <returns>A Task representing the asynchronous save operation.</returns>
+        public override async Task SaveState(string filename)  // Override method to save state to a file.
         {
-            // Return true if either:
-            // 1. There are remaining tokens and we are not in the "wait for input" state, or
-            // 2. We are still in the initial prompt run.
+            var state = (InteractiveExecutorState)GetStateData();  // Get the current state as an InteractiveExecutorState object.
+            using(var fs = new FileStream(filename, FileMode.Create, FileAccess.Write))  // Open a file stream to create or overwrite the file.
+            {
+                await JsonSerializer.SerializeAsync(fs, state);  // Asynchronously serialize the state object to JSON and write it to the file.
+            }
+        }
+        
+        /// <summary>
+        /// Asynchronously loads executor state from a specified file.
+        /// The file is expected to contain JSON data representing an InteractiveExecutorState.
+        /// </summary>
+        /// <param name="filename">The file path from which to load the state.</param>
+        /// <returns>A Task representing the asynchronous load operation.</returns>
+        public override async Task LoadState(string filename)  // Override method to load state from a file.
+        {
+            using (var fs = new FileStream(filename, FileMode.Open, FileAccess.Read))  // Open a file stream to read from the specified file.
+            {
+                var state = await JsonSerializer.DeserializeAsync<InteractiveExecutorState>(fs);  // Deserialize the JSON data into an InteractiveExecutorState.
+                await LoadState(state);  // Restore the state using the deserialized state object.
+            }
+        }
+        
+        /// <summary>
+        /// Determines whether the token generation loop should continue.
+        /// The loop continues if there are remaining tokens and the executor is not waiting for input,
+        /// or if the initial prompt run is still active.
+        /// </summary>
+        /// <param name="args">The current inference state arguments including token budgets and flags.</param>
+        /// <returns>A Task that resolves to a boolean indicating whether generation should continue.</returns>
+        protected override Task<bool> GetLoopCondition(InferStateArgs args)  // Override method to define loop continuation conditions.
+        {
+            // Continue if there are tokens left and not waiting for input, or if still processing the initial prompt.
             return Task.FromResult(args.RemainedTokens != 0 && !args.WaitForInput || _is_prompt_run);
         }
-
-        /// <inheritdoc />
-        protected override Task PreprocessInputs(string? text, InferStateArgs args)
+        
+        /// <summary>
+        /// Preprocesses input text before token generation.
+        /// For the initial prompt, the input is tokenized (or processed for image embeddings) and stored.
+        /// For subsequent inputs, tokens are appended after ensuring that the text ends with a newline delimiter.
+        /// </summary>
+        /// <param name="text">The input prompt text; must be non-null for the initial prompt.</param>
+        /// <param name="args">Inference state arguments (e.g., token budgets).</param>
+        /// <returns>A completed Task.</returns>
+        protected override Task PreprocessInputs(string? text, InferStateArgs args)  // Override method to preprocess input text.
         {
-            // If this is the initial prompt run...
-            if (_is_prompt_run)
+            if (_is_prompt_run)  // Check if this is the initial prompt run.
             {
-                // The prompt must not be null; throw an exception if it is.
-                if (text == null) 
-                    throw new ArgumentException("Prompt cannot be null to trigger continuation if a prompt has not been provided previously.");
-                
-                // For non-multimodal operation, tokenize the prompt text and replace the current input tokens.
-                if (!this.IsMultiModal)
+                if (text == null)  // If the prompt text is null:
+                    throw new ArgumentException("Prompt cannot be null to trigger continuation if a prompt has not been provided previously.");  // Throw an error.
+                    
+                if (!this.IsMultiModal)  // If the executor is not in multimodal mode:
                 {
+                    // Tokenize the entire prompt with a beginning-of-sequence token and convert to a list.
                     _embed_inps = Context.Tokenize(text, true, true).ToList();
                 }
-                else
+                else  // If in multimodal mode:
                 {
-                    // For multimodal operation, perform specialized preprocessing (e.g., for image embedding).
+                    // Process the prompt for image embeddings.
                     PreprocessLlava(text, args, true);
                 }
             }
-            else
+            else  // For subsequent (non-initial) inputs:
             {
-                // For subsequent inputs (not the initial prompt):
-                if (text != null)
+                if (text != null)  // If input text is provided:
                 {
-                    // Ensure the input ends with a newline to delimit the prompt.
-                    if (!text.EndsWith("\n"))
+                    if (!text.EndsWith("\n"))  // Check if the text does not end with a newline:
                     {
-                        text += "\n";
+                        text += "\n";  // Append a newline to ensure proper token delimiting.
                     }
-
-                    // For non-multimodal, tokenize without adding a beginning-of-sequence token.
-                    if (!this.IsMultiModal)
+                    
+                    if (!this.IsMultiModal)  // If not in multimodal mode:
                     {
+                        // Tokenize the input text without adding a beginning-of-sequence token.
                         var line_inp = Context.Tokenize(text, false, true);
-                        _embed_inps.AddRange(line_inp);   // Append the new tokens to the pending input tokens.
-                        args.RemainedTokens -= line_inp.Length; // Decrease the token budget accordingly.
+                        _embed_inps.AddRange(line_inp);  // Append the tokenized input to the pending inputs.
+                        args.RemainedTokens -= line_inp.Length;  // Decrease the remaining token count by the number of tokens added.
                     }
-                    else
+                    else  // If in multimodal mode:
                     {
-                        // For multimodal mode, call the specialized LLava preprocessing without BOS.
+                        // Process the input text for image embeddings without a BOS token.
                         PreprocessLlava(text, args, false);
                     }
                 }
             }
-
-            // Return a completed task as no asynchronous work is needed here.
-            return Task.CompletedTask;
-        }
-
-        /// <summary>
-        /// Preprocesses multimodal (LLava) input.
-        /// Handles the special case where an image is embedded in the prompt using the "<image>" tag.
-        /// </summary>
-        /// <param name="text">The input prompt text.</param>
-        /// <param name="args">Inference state arguments including token budgets.</param>
-        /// <param name="addBos">Indicates whether to add a beginning-of-sequence token.</param>
-        /// <returns>A completed Task.</returns>
-        private Task PreprocessLlava(string text, InferStateArgs args, bool addBos = true )
-        {
-            int usedTokens = 0; // Local counter for tokens processed (this value is updated but not used further in this snippet).
             
-            // Check if the input text contains the "<image>" tag.
-            _imageInPrompt = text.Contains("<image>");
-            if (_imageInPrompt && IsMultiModal )
-            {
-                // For each image provided (Images is assumed to be defined elsewhere in multimodal context),
-                // create a safe image embedding handle using the CLIP model.
-                foreach (var image in Images)
-                {
-                    _imageEmbedHandles.Add(SafeLlavaImageEmbedHandle.CreateFromMemory(ClipModel.NativeHandle, Context, image));
-                }
-
-                // Find the index of the "<image>" tag in the prompt.
-                int imageIndex = text.IndexOf("<image>");
-                // Extract the segment of text before the image tag.
-                string preImagePrompt = text.Substring(0, imageIndex);
-                // Tokenize the segment before the image tag. 'addBos' determines whether to include the BOS token.
-                var segment1 = Context.Tokenize(preImagePrompt, addBos, true);
-                // Remember the token position where the image embedding should be inserted.
-                _EmbedImagePosition = segment1.Length;
-                // Extract the segment of text after the image tag.
-                string postImagePrompt = text.Substring(imageIndex + 7); // Skip the "<image>" tag (7 characters long).
-                // Tokenize the post-image segment without adding a BOS token.
-                var segment2 = Context.Tokenize(postImagePrompt, false, true);
-                // Append both segments to the list of input tokens for embedding.
-                _embed_inps.AddRange(segment1);
-                _embed_inps.AddRange(segment2);
-                usedTokens += (segment1.Length + segment2.Length); // Update token count (for tracking/debugging).
-            }
-            else
-            {
-                // For non-image prompts or when not in multimodal mode:
-                if (addBos)
-                {
-                    // Tokenize the entire prompt with a beginning-of-sequence token.
-                    _embed_inps = Context.Tokenize(text, true, true).ToList();
-                }
-                else
-                {
-                    // Tokenize without adding a BOS token and append the tokens.
-                    var line_inp = Context.Tokenize(text, false, true);
-                    _embed_inps.AddRange(line_inp);
-                    // Update the remaining token budget accordingly.
-                    args.RemainedTokens -= line_inp.Length;                    
-                }
-            }
-            return Task.CompletedTask; // Return a completed task.
+            return Task.CompletedTask;  // Return a completed task since no asynchronous work is performed here.
         }
         
         /// <summary>
-        /// Post-processes after token generation to decide whether to stop or continue generation.
+        /// Preprocesses multimodal (LLava) input by detecting and handling the "<image>" tag.
+        /// If the prompt contains "<image>" and multimodal mode is active, this method:
+        /// - Creates safe image embedding handles for each image.
+        /// - Tokenizes the prompt in segments before and after the image tag.
+        /// - Records the token index where image embeddings should be inserted.
+        /// For non-image prompts or non-multimodal mode, it tokenizes the prompt normally.
         /// </summary>
-        /// <param name="inferenceParams">The inference parameters used during generation.</param>
-        /// <param name="args">The current inference state arguments.</param>
-        /// <returns>
-        /// A tuple where:
-        /// - The first element is a boolean indicating if generation should be terminated.
-        /// - The second element is a list of any final output strings (e.g., an end-of-text message).
-        /// </returns>
-        protected override async Task<(bool, IReadOnlyList<string>)> PostProcess(IInferenceParams inferenceParams, InferStateArgs args)
+        /// <param name="text">The input prompt text.</param>
+        /// <param name="args">Inference state arguments (e.g., remaining token count).</param>
+        /// <param name="addBos">Specifies whether to add a beginning-of-sequence token to the first segment.</param>
+        /// <returns>A completed Task.</returns>
+        private Task PreprocessLlava(string text, InferStateArgs args, bool addBos = true)  // Private helper method for multimodal input processing.
         {
-            // If all the input tokens have been consumed...
-            if (_embed_inps.Count <= _consumedTokensCount)
+            int usedTokens = 0;  // Initialize a counter to track the number of tokens processed.
+            
+            _imageInPrompt = text.Contains("<image>");  // Check if the prompt text contains the "<image>" tag.
+            if (_imageInPrompt && IsMultiModal)  // If an image tag is present and multimodal mode is enabled:
             {
-                // Check if the last generated tokens end with any of the defined antiprompt strings.
-                // This is used to decide if the model should wait for further user input.
+                foreach (var image in Images)  // Iterate over each image in the Images collection.
+                {
+                    // Create a safe image embedding handle for the image using the CLIP model and add it to the list.
+                    _imageEmbedHandles.Add(SafeLlavaImageEmbedHandle.CreateFromMemory(ClipModel.NativeHandle, Context, image));
+                }
+                
+                int imageIndex = text.IndexOf("<image>");  // Find the starting index of the "<image>" tag.
+                string preImagePrompt = text.Substring(0, imageIndex);  // Extract the text segment before the image tag.
+                var segment1 = Context.Tokenize(preImagePrompt, addBos, true);  // Tokenize the pre-image segment, optionally adding a BOS token.
+                _EmbedImagePosition = segment1.Length;  // Record the position where the image embedding tokens should be inserted.
+                string postImagePrompt = text.Substring(imageIndex + 7);  // Extract the text segment after the "<image>" tag (skip 7 characters).
+                var segment2 = Context.Tokenize(postImagePrompt, false, true);  // Tokenize the post-image segment without a BOS token.
+                _embed_inps.AddRange(segment1);  // Add the pre-image tokens to the pending inputs.
+                _embed_inps.AddRange(segment2);  // Add the post-image tokens to the pending inputs.
+                usedTokens += (segment1.Length + segment2.Length);  // Update the counter with the total tokens processed.
+            }
+            else  // If no image tag is present or not in multimodal mode:
+            {
+                if (addBos)  // If a beginning-of-sequence token is required:
+                {
+                    // Tokenize the entire prompt with a BOS token and store it as the pending input tokens.
+                    _embed_inps = Context.Tokenize(text, true, true).ToList();
+                }
+                else  // If no BOS token should be added:
+                {
+                    // Tokenize the prompt without a BOS token.
+                    var line_inp = Context.Tokenize(text, false, true);
+                    _embed_inps.AddRange(line_inp);  // Append these tokens to the pending inputs.
+                    args.RemainedTokens -= line_inp.Length;  // Decrease the remaining token budget accordingly.
+                }
+            }
+            
+            return Task.CompletedTask;  // Return a completed task.
+        }
+        
+        /// <summary>
+        /// Post-processes after token generation to decide whether to terminate or continue generation.
+        /// Checks conditions such as:
+        /// - All input tokens have been processed and the last generated tokens match any antiprompt strings.
+        /// - An End-Of-Sequence (EOS) token has been generated.
+        /// - The token generation budget is exhausted.
+        /// </summary>
+        /// <param name="inferenceParams">Inference parameters controlling sampling behavior.</param>
+        /// <param name="args">Current inference state arguments.</param>
+        /// <returns>
+        /// A tuple where the first element is a boolean indicating if generation should stop,
+        /// and the second element is a list of any final output strings (e.g., an end-of-text message).
+        /// </returns>
+        protected override async Task<(bool, IReadOnlyList<string>)> PostProcess(IInferenceParams inferenceParams, InferStateArgs args)  // Override PostProcess for termination logic.
+        {
+            if (_embed_inps.Count <= _consumedTokensCount)  // Check if all pending input tokens have been processed.
+            {
+                // If the recent tokens end with any antiprompt strings, set the flag to wait for new input.
                 if (_last_n_tokens.TokensEndsWithAnyString(args.Antiprompts, Context.NativeHandle.ModelHandle, Context.Encoding))
                     args.WaitForInput = true;
-
-                // If some tokens have already been generated and the model is waiting for input, break generation.
+                    
+                // If tokens have been generated and the executor is waiting for input, signal termination.
                 if (_pastTokensCount > 0 && args.WaitForInput)
                     return (true, Array.Empty<string>());
             }
-
-            // If the most recently generated token is the End-Of-Sequence (EOS) token...
-            if (_embeds.Count > 0 && _embeds.Last() == Context.Vocab.EOS)
+            
+            if (_embeds.Count > 0 && _embeds.Last() == Context.Vocab.EOS)  // If the last generated token is the EOS token:
             {
-                // Signal termination and return an end-of-text message.
+                // Terminate generation and return an end-of-text message.
                 return (true, new[] { " [end of text]\n" });
             }
-
-            // If the token budget has been exhausted (and a max tokens limit is set)...
-            if (args.RemainedTokens <= 0 && inferenceParams.MaxTokens != -1)
+            
+            if (args.RemainedTokens <= 0 && inferenceParams.MaxTokens != -1)  // If the token budget is exhausted and a max token limit is set:
             {
-                // Reset the remaining tokens count to the maximum allowed.
-                args.RemainedTokens = inferenceParams.MaxTokens;
-                // Indicate that the executor should wait for further input.
-                args.WaitForInput = true;
+                args.RemainedTokens = inferenceParams.MaxTokens;  // Reset the remaining token count to the max limit.
+                args.WaitForInput = true;  // Set the flag to wait for further input.
             }
-
-            // Otherwise, continue generation.
-            return (false, Array.Empty<string>());
+            
+            return (false, Array.Empty<string>());  // Otherwise, continue generation with no additional output.
         }
-
+        
         /// <summary>
-        /// The main internal inference method responsible for token generation.
-        /// This method handles context management, multi-modal decoding, sampling, and batching.
+        /// The core inference method responsible for token generation.
+        /// This method is repeatedly invoked within the asynchronous generation loop.
+        /// It handles:
+        /// - Recycling context if the token count exceeds the model's context window.
+        /// - Reusing matching tokens from a saved session to accelerate inference.
+        /// - Decoding the current batch of tokens (with special handling for multimodal image embeddings if needed).
+        /// - Sampling the next token using the configured sampling pipeline.
+        /// - Incorporating the new token into the session and updating token history.
         /// </summary>
-        /// <param name="inferenceParams">Parameters controlling inference such as sampling configuration.</param>
-        /// <param name="args">State arguments including token budgets and flags.</param>
-        protected override async Task InferInternal(IInferenceParams inferenceParams, InferStateArgs args)
+        /// <param name="inferenceParams">Parameters controlling sampling and decoding behavior.</param>
+        /// <param name="args">Current inference state arguments (e.g., token budgets, flags).</param>
+        protected override async Task InferInternal(IInferenceParams inferenceParams, InferStateArgs args)  // Override method for the main inference logic.
         {
-            // Create a new batch to hold tokens for the decoding/inference process.
-            var batch = new LLamaBatch();
-
-            // If there are tokens waiting in the '_embeds' list to be processed...
-            if (_embeds.Count > 0)
+            var batch = new LLamaBatch();  // Create a new batch object for token decoding.
+            
+            if (_embeds.Count > 0)  // Check if there are tokens waiting to be processed.
             {
-                // Mark that the initial prompt run has completed.
-                _is_prompt_run = false;
-                // Check if adding the new tokens would exceed the model's context window.
+                _is_prompt_run = false;  // Mark the initial prompt run as completed.
+                
+                // If processing these tokens would exceed the model's context window:
                 if (_pastTokensCount + _embeds.Count > Context.ContextSize)
                 {
-                    // Determine how many tokens to keep when resetting the context.
-                    // This is ported from the llama.cpp example.
-                    var tokensToKeep = inferenceParams.TokensKeep;
-                    // If the tokens to keep are invalid or exceed the number of prompt tokens, keep all prompt tokens.
-                    if (tokensToKeep < 0 || tokensToKeep > _embed_inps.Count)
+                    var tokensToKeep = inferenceParams.TokensKeep;  // Start with the tokensToKeep value from inference parameters.
+                    if (tokensToKeep < 0 || tokensToKeep > _embed_inps.Count)  // Validate tokensToKeep against available tokens.
                     {
-                        tokensToKeep = _embed_inps.Count;
+                        tokensToKeep = _embed_inps.Count;  // If invalid, keep all available prompt tokens.
                     }
                     else
                     {
-                        // Always include the beginning-of-sequence token if required.
+                        // Ensure inclusion of the beginning-of-sequence token if required.
                         tokensToKeep += Convert.ToInt32(Context.Vocab.ShouldAddBOS);
                     }
-
-                    // Handle the scenario where the context window has been exceeded.
+                    
+                    // Recycle the context by discarding older tokens beyond the tokensToKeep count.
                     HandleRunOutOfContext(tokensToKeep);
                 }
-
-                // Attempt to reuse a matching prefix from the session history to save computation.
+                
+                // Attempt to reuse matching tokens from a previously saved session to speed up processing.
                 TryReuseMatchingPrefix();
-
-                // Variables to hold decoding results.
+                
+                // Declare variables to store the results of the decoding operations.
                 (DecodeResult, int, int) header, end, result;
-                // Check if we are in multimodal mode and if the image embedding position is set.
-                if (IsMultiModal && _EmbedImagePosition > 0)
+                if (IsMultiModal && _EmbedImagePosition > 0)  // Check if in multimodal mode and an image embedding position is defined.
                 {
-                    // Decode tokens preceding the image embedding.
+                    // Decode tokens before the image embedding position.
                     header = await Context.DecodeAsync(
-                        _embeds.GetRange(0, _EmbedImagePosition), // Tokens before the image.
-                        LLamaSeqId.Zero,                          // Sequence identifier (default/zero).
-                        batch,                                    // Current batch.
-                        _pastTokensCount);                        // Offset for past tokens.
-                    // Update the count of past tokens.
-                    _pastTokensCount = header.Item3;
-
-                    // If the header decoding did not complete successfully, throw an error.
-                    if (header.Item1 != DecodeResult.Ok) throw new LLamaDecodeError(header.Item1);
-                   
-                    // Process each image handle by evaluating its embedding.
+                        _embeds.GetRange(0, _EmbedImagePosition),  // Get tokens preceding the "<image>" tag.
+                        LLamaSeqId.Zero,                           // Use the default sequence identifier.
+                        batch,                                     // Pass the current batch for decoding.
+                        _pastTokensCount);                         // Provide the current count of past tokens.
+                    _pastTokensCount = header.Item3;  // Update the past tokens count with the result from decoding.
+                    
+                    if (header.Item1 != DecodeResult.Ok)  // If header decoding was not successful:
+                        throw new LLamaDecodeError(header.Item1);  // Throw a decode error.
+                    
+                    // For each image embedding handle, evaluate the image embedding using the CLIP model.
                     foreach (var image in _imageEmbedHandles)
                         ClipModel.EvalImageEmbed(Context, image, ref _pastTokensCount);
                         
-                    // Decode tokens following the image embedding.
+                    // Decode tokens after the image embedding.
                     end = await Context.DecodeAsync(
-                        _embeds.GetRange(_EmbedImagePosition, _embeds.Count - _EmbedImagePosition), // Tokens after the image.
-                        LLamaSeqId.Zero,
-                        batch,
-                        _pastTokensCount);
-                    // Update the count of past tokens.
-                    _pastTokensCount = end.Item3;
-
-                    // Reset image-related state.
-                    _EmbedImagePosition = -1;
-                    _imageEmbedHandles.Clear();
-                    Images.Clear(); // 'Images' is assumed to be a collection defined elsewhere.
+                        _embeds.GetRange(_EmbedImagePosition, _embeds.Count - _EmbedImagePosition),  // Get tokens following the "<image>" tag.
+                        LLamaSeqId.Zero,  // Use the default sequence identifier.
+                        batch,            // Pass the current batch.
+                        _pastTokensCount);  // Provide the updated past tokens count.
+                    _pastTokensCount = end.Item3;  // Update the past tokens count with the result.
+                    
+                    // Reset image embedding related state after processing.
+                    _EmbedImagePosition = -1;  // Reset the image embedding position.
+                    _imageEmbedHandles.Clear();  // Clear all stored image embedding handles.
+                    Images.Clear();             // Clear the Images collection (assumed to be defined elsewhere).
                 }
-                else
+                else  // If not in multimodal mode or no image embedding is needed:
                 {
-                    // For non-multimodal or when no image tag is present, decode the entire token list.
+                    // Decode the entire token list.
                     result = await Context.DecodeAsync(
-                        _embeds,
-                        LLamaSeqId.Zero,
-                        batch,
-                        _pastTokensCount);
-                    // Update the past tokens count.
-                    _pastTokensCount = result.Item3;
-
-                    // Throw an error if decoding failed.
-                    if (result.Item1 != DecodeResult.Ok) throw new LLamaDecodeError(result.Item1);
+                        _embeds,           // Pass all tokens currently stored in _embeds.
+                        LLamaSeqId.Zero,   // Use the default sequence identifier.
+                        batch,             // Provide the current batch.
+                        _pastTokensCount); // Provide the current past tokens count.
+                    _pastTokensCount = result.Item3;  // Update the past tokens count with the result.
+                    
+                    if (result.Item1 != DecodeResult.Ok)  // If decoding the tokens was unsuccessful:
+                        throw new LLamaDecodeError(result.Item1);  // Throw a decode error.
                 }
                 
-                // If a session file is used and there were tokens processed,
-                // add the processed tokens to the session for future reuse.
+                // If a session file is defined and tokens were processed:
                 if (_embeds.Count > 0 && !string.IsNullOrEmpty(_pathSession))
                 {
-                    _session_tokens.AddRange(_embeds);
-                    _n_session_consumed = _session_tokens.Count;
+                    _session_tokens.AddRange(_embeds);  // Append the processed tokens to the session history.
+                    _n_session_consumed = _session_tokens.Count;  // Update the count of consumed session tokens.
                 }
             }
-
-            // Clear the embeds list as its tokens have now been processed.
-            _embeds.Clear();
-
-            // If there are no more pending input tokens and we are not waiting for user input...
-            if (_embed_inps.Count <= _consumedTokensCount && !args.WaitForInput)
+            
+            _embeds.Clear();  // Clear the list of tokens to be processed as they have been handled.
+            
+            if (_embed_inps.Count <= _consumedTokensCount && !args.WaitForInput)  // If no pending input tokens remain and we are not waiting for input:
             {
-                // Optionally save the session file on the first sample for faster future prompt loading.
+                // If a session file is being used and a save is needed, perform the save.
                 if (!string.IsNullOrEmpty(_pathSession) && args.NeedToSaveSession)
                 {
-                    args.NeedToSaveSession = false;
-                    SaveSessionFile(_pathSession);
+                    args.NeedToSaveSession = false;  // Reset the flag indicating that a session save is needed.
+                    SaveSessionFile(_pathSession);    // Save the session file to disk.
                 }
-
-                // Sample the next token using the provided sampling pipeline.
-                // Note: 'batch.TokenCount - 1' is passed to indicate the current position for sampling.
+                
+                // Sample the next token using the configured sampling pipeline.
                 var id = inferenceParams.SamplingPipeline.Sample(Context.NativeHandle, batch.TokenCount - 1);
-
-                // Record the sampled token in the history of recently generated tokens.
-                _last_n_tokens.Enqueue(id);
-
-                // If the sampled token is the EOS (end-of-sequence) token...
-                if (id == Context.NativeHandle.ModelHandle.Vocab.EOS)
+                
+                _last_n_tokens.Enqueue(id);  // Add the sampled token to the recent token history.
+                
+                if (id == Context.NativeHandle.ModelHandle.Vocab.EOS)  // If the sampled token is the End-Of-Sequence (EOS) token:
                 {
-                    // Replace it with a newline token.
-                    id = Context.NativeHandle.ModelHandle.Vocab.Newline!.Value;
-                    // If antiprompts are defined, tokenize the first one and add its tokens to the pending input list.
-                    if (args.Antiprompts is not null && args.Antiprompts.Count > 0)
+                    id = Context.NativeHandle.ModelHandle.Vocab.Newline!.Value;  // Replace the EOS token with a newline token.
+                    if (args.Antiprompts is not null && args.Antiprompts.Count > 0)  // If antiprompt strings are defined:
                     {
-                        var first_antiprompt = Context.Tokenize(args.Antiprompts[0], false);
-                        _embed_inps.AddRange(first_antiprompt);
+                        var first_antiprompt = Context.Tokenize(args.Antiprompts[0], false);  // Tokenize the first antiprompt.
+                        _embed_inps.AddRange(first_antiprompt);  // Append these tokens to the pending inputs.
                     }
                 }
-
-                // Add the sampled (or replaced) token to the embeds list for processing.
-                _embeds.Add(id);
-
-                // Decrement the remaining tokens counter.
-                args.RemainedTokens--;
-                // Indicate that a token was generated, so that any listening code may act upon it.
-                args.ReturnValue = true;
+                
+                _embeds.Add(id);  // Add the sampled (or replaced) token to the embeds list.
+                
+                args.RemainedTokens--;  // Decrement the remaining token budget.
+                args.ReturnValue = true;  // Indicate that a token has been generated.
             }
-            else
+            else  // Else, if there are still pending input tokens:
             {
-                // If there are still pending input tokens that haven’t been processed...
+                // Continue transferring pending input tokens to the embeds list until the batch size is reached.
                 while (_embed_inps.Count > _consumedTokensCount)
                 {
-                    // Add the next pending token to the embeds list.
-                    _embeds.Add(_embed_inps[_consumedTokensCount]);
-                    // Also record this token in the last tokens history.
-                    _last_n_tokens.Enqueue(_embed_inps[_consumedTokensCount]);
-                    // Increment the consumed tokens counter.
-                    _consumedTokensCount++;
-                    // If the current batch has reached the maximum batch size, stop adding more tokens.
-                    if (_embeds.Count >= Context.BatchSize)
+                    _embeds.Add(_embed_inps[_consumedTokensCount]);  // Add the next pending token.
+                    _last_n_tokens.Enqueue(_embed_inps[_consumedTokensCount]);  // Record this token in the recent history.
+                    _consumedTokensCount++;  // Increment the counter for consumed tokens.
+                    if (_embeds.Count >= Context.BatchSize)  // If the number of tokens in the current batch reaches the batch size:
                     {
-                        break;
+                        break;  // Exit the loop.
                     }
                 }
             }
-
-            // End of the internal inference method.
-            return;
+            
+            return;  // End of the inference method.
         }
-
+        
         /// <summary>
-        /// The descriptor of the state of the interactive executor.
-        /// This class extends ExecutorBaseState by adding properties specific to interactive execution.
+        /// Represents the state of the InteractiveExecutor.
+        /// This state object extends ExecutorBaseState to include properties specific to interactive execution,
+        /// such as whether the initial prompt run is still active.
         /// </summary>
-        public class InteractiveExecutorState : ExecutorBaseState
+        public class InteractiveExecutorState : ExecutorBaseState  // Nested class for capturing the executor's state.
         {
             /// <summary>
-            /// Whether the executor is running for the first time (i.e., processing the prompt).
-            /// This is used to differentiate prompt input from subsequent user input.
+            /// Indicates whether the executor is running for the first time (i.e., processing the initial prompt).
             /// </summary>
-            [JsonPropertyName("is_prompt_run")]
-            public bool IsPromptRun { get; set; }
+            [JsonPropertyName("is_prompt_run")]  // Specifies the JSON property name during serialization.
+            public bool IsPromptRun { get; set; }  // Property to track if the initial prompt run is still in progress.
         }
     }
 }

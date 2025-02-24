@@ -1,121 +1,133 @@
-// Import necessary namespaces from LLama libraries and .NET standard libraries.
-using LLama.Abstractions;                   // Provides interface definitions for LLama executors.
-using LLama.Common;                         // Contains common utilities, types, and helpers.
-using LLama.Exceptions;                     // Contains custom exception types for LLama.
-using LLama.Native;                         // Contains definitions and interop wrappers for native LLama functions.
-using Microsoft.Extensions.Logging;         // Provides logging interfaces.
-using System;                               // Provides basic system definitions.
-using System.Collections.Generic;           // Provides generic collections (e.g., List<T>).
-using System.IO;                            // Provides types for file input/output.
-using System.Linq;                          // Provides LINQ query capabilities.
-using System.Runtime.CompilerServices;      // Provides attributes for compiler services (e.g., EnumeratorCancellation).
-using System.Text.Json.Serialization;       // Provides attributes for JSON serialization.
-using System.Threading;                     // Provides types for threading and cancellation.
-using System.Threading.Tasks;               // Provides types for asynchronous programming.
+// Import interface definitions for LLama executors.
+using LLama.Abstractions;                   // Provides interfaces (e.g., ILLamaExecutor) for executor implementations.
+// Import common utility functions, types, and helpers.
+using LLama.Common;                         // Contains general-purpose utilities and helper classes.
+// Import custom exception types for LLama.
+using LLama.Exceptions;                     // Defines exceptions specific to the LLama project.
+// Import definitions and interop wrappers for native LLama functions.
+using LLama.Native;                         // Enables interop with native LLama libraries.
+// Import logging interfaces.
+using Microsoft.Extensions.Logging;         // Provides logging capabilities.
+// Import basic system definitions.
+using System;                               // Provides core system types and functionalities.
+// Import generic collections such as List<T>.
+using System.Collections.Generic;           // Enables use of generic collections (e.g., List<T>).
+// Import types for file input/output.
+using System.IO;                            // Supports file reading and writing operations.
+// Import LINQ query capabilities.
+using System.Linq;                          // Provides LINQ methods for collection manipulation.
+// Import compiler services attributes.
+using System.Runtime.CompilerServices;      // Supports attributes like EnumeratorCancellation.
+// Import JSON serialization attributes.
+using System.Text.Json.Serialization;       // Allows customizing JSON serialization via attributes.
+// Import threading types (e.g., CancellationToken).
+using System.Threading;                     // Provides threading primitives and cancellation support.
+// Import asynchronous programming types (e.g., Task, async/await).
+using System.Threading.Tasks;               // Supports asynchronous programming constructs.
 
-namespace LLama
+namespace LLama  // Define the LLama namespace.
 {
     /// <summary>
     /// The base class for stateful LLama executors.
     /// This class provides core functionality for token management, session handling,
     /// context recycling, and asynchronous inference execution.
     /// </summary>
-    public abstract class StatefulExecutorBase : ILLamaExecutor
+    public abstract class StatefulExecutorBase : ILLamaExecutor  // Implements the ILLamaExecutor interface.
     {
-        // The logger used by this executor.
-        protected ILogger? _logger;
+        // The logger instance used for diagnostic output.
+        protected ILogger? _logger;  // Nullable logger for logging messages.
 
-        // The count of tokens that have already been processed by the model (n_past).
-        protected int _pastTokensCount;
+        // The count of tokens that have been processed before the current inference (n_past).
+        protected int _pastTokensCount;  // Tracks the total number of tokens processed in past inferences.
         // The count of tokens that have been consumed during the current inference (n_consume).
-        protected int _consumedTokensCount;
+        protected int _consumedTokensCount;  // Tracks the number of input tokens already consumed.
 
-        // Number of tokens from the session file that have already been consumed.
-        protected int _n_session_consumed;
-        // Number of tokens matching between the session file and current prompt.
-        protected int _n_matching_session_tokens;
+        // The number of tokens from the session file that have been consumed.
+        protected int _n_session_consumed;  // Tracks how many tokens from a loaded session have been used.
+        // The count of tokens matching between the session file and the current prompt.
+        protected int _n_matching_session_tokens;  // Indicates how many tokens in the session match the current prompt.
 
-        // The path to the session file used for storing/restoring session state.
-        protected string? _pathSession;
+        // The file path of the session file used for storing and restoring session state.
+        protected string? _pathSession;  // Holds the session file path (if any).
 
-        // A container for the tokens that have been produced (or are about to be processed).
-        protected List<LLamaToken> _embeds = new(); // Represents "embd" tokens.
-        // A container for the tokens obtained from the input prompt.
-        protected List<LLamaToken> _embed_inps = new();
-        // A container for tokens stored from a session file.
-        protected List<LLamaToken> _session_tokens = new();
+        // A container for tokens that have been produced (or are queued to be processed).
+        protected List<LLamaToken> _embeds = new();  // List holding tokens generated by the model.
+        // A container for tokens obtained from the input prompt.
+        protected List<LLamaToken> _embed_inps = new();  // List holding tokenized input prompt tokens.
+        // A container for tokens loaded from a session file.
+        protected List<LLamaToken> _session_tokens = new();  // List holding tokens retrieved from a session file.
 
-        // A fixed-size queue holding the most recent tokens generated by the model.
-        protected FixedSizeQueue<LLamaToken> _last_n_tokens;
+        // A fixed-size queue to hold the most recent tokens generated by the model.
+        protected FixedSizeQueue<LLamaToken> _last_n_tokens;  // Queue for storing a fixed number of latest tokens.
 
-        // The LLama context, used for tokenization, inference, and access to model parameters.
-        public LLamaContext Context { get; }
+        // The LLama context used for tokenization, inference, and accessing model parameters.
+        public LLamaContext Context { get; }  // Read-only property exposing the LLama context.
 
-        // LLava Section for multimodal support:
-        //
+        // -- Multimodal support (LLava) --
+
         /// <inheritdoc />
-        public bool IsMultiModal
+        public bool IsMultiModal  // Indicates whether multimodal functionality is enabled.
         {
             get
             {
-                // If a CLIP/LLava model is provided, we are operating in multimodal mode.
+                // Return true if a CLIP/LLava model is provided.
                 return ClipModel != null;
             }
         }
 
         /// <inheritdoc />
-        public LLavaWeights? ClipModel { get; }
+        public LLavaWeights? ClipModel { get; }  // Optional clip model for image embeddings; null if not in multimodal mode.
 
         /// <summary>
-        /// A container for image data (each image represented as a byte array).
+        /// A container for image data, where each image is represented as a byte array.
         /// In multimodal mode, these images are embedded into the model's processing.
         /// </summary>
-        public List<byte[]> Images { get; }
+        public List<byte[]> Images { get; }  // List that holds images as byte arrays.
 
-        // A streaming decoder that converts sequences of tokens into strings (for output).
-        private readonly StreamingTokenDecoder _decoder;
+        // A streaming decoder that converts sequences of tokens into output strings.
+        private readonly StreamingTokenDecoder _decoder;  // Decoder to transform tokens into human-readable text.
 
         /// <summary>
         /// Primary constructor for the stateful executor.
-        /// Initializes core fields and sets up the token history and streaming decoder.
+        /// Initializes core fields, token counters, session storage, and sets up the token history and streaming decoder.
         /// </summary>
         /// <param name="context">The LLama context used for inference and tokenization.</param>
         /// <param name="logger">Optional logger for diagnostic output.</param>
         protected StatefulExecutorBase(LLamaContext context, ILogger? logger = null)
         {
-            // Initialize the list that will hold image data.
+            // Initialize the list to hold image data (for multimodal operation).
             Images = new List<byte[]>();
-            // Store the provided logger.
+            // Store the provided logger instance.
             _logger = logger;
-            // Store the LLama context.
+            // Store the LLama context for later use.
             Context = context;
             // Initialize token counters.
-            _pastTokensCount = 0;
-            _consumedTokensCount = 0;
-            _n_session_consumed = 0;
-            // Create a fixed-size queue for the last tokens with capacity equal to the model's context size.
+            _pastTokensCount = 0;          // No tokens processed initially.
+            _consumedTokensCount = 0;      // No tokens consumed at start.
+            _n_session_consumed = 0;       // No session tokens consumed.
+            // Create a fixed-size queue for the last tokens with capacity set to the model's context size.
             _last_n_tokens = new FixedSizeQueue<LLamaToken>((int)Context.ContextSize);
-            // Initialize the streaming decoder with the current context.
+            // Initialize the streaming token decoder with the current context.
             _decoder = new StreamingTokenDecoder(context);
         }
         
         /// <summary>
         /// Overloaded constructor that accepts LLavaWeights for multimodal operation.
-        /// Calls the primary constructor and then sets the multimodal clip model.
+        /// Calls the primary constructor and then sets the clip model for image embeddings.
         /// </summary>
-        /// <param name="context">The LLama context used for inference and tokenization.</param>
+        /// <param name="context">The LLama context for inference and tokenization.</param>
         /// <param name="lLavaWeights">The LLavaWeights instance used for image embeddings.</param>
         /// <param name="logger">Optional logger for diagnostic output.</param>
         public StatefulExecutorBase(LLamaContext context, LLavaWeights lLavaWeights, ILogger? logger = null)
-            : this(context, logger)
+            : this(context, logger)  // Call the primary constructor.
         {
-            // Set the clip model for multimodal support.
+            // Set the clip model to enable multimodal support.
             ClipModel = lLavaWeights;
         }
 
         /// <summary>
         /// Configures the executor to use a session file.
-        /// This file contains precomputed tokens (KV cache) for faster prompt initialization.
+        /// The session file contains precomputed tokens (KV cache) for faster prompt initialization.
         /// </summary>
         /// <param name="filename">The path to the session file.</param>
         /// <returns>The current executor instance (for chaining).</returns>
@@ -125,48 +137,53 @@ namespace LLama
         {
             // Store the session file path.
             _pathSession = filename;
-            // Ensure the filename is not empty.
+            // Ensure the filename is not null or empty.
             if (string.IsNullOrEmpty(filename))
             {
                 throw new ArgumentNullException(nameof(filename), "File name cannot be empty.");
             }
-            // If the file exists, attempt to load the session tokens.
+            // Check if the session file exists on disk.
             if (File.Exists(filename))
             {
+                // Log that we are attempting to load the session.
                 _logger?.LogInformation($"[LLamaExecutor] Attempting to load saved session from {filename}");
-                // Allocate an array with size equal to the model's context size.
+                // Allocate an array to hold tokens up to the model's context size.
                 var session_tokens = new LLamaToken[Context.ContextSize];
-                // Attempt to load the session state from file.
+                // Attempt to load the session tokens using the native API.
                 if (!NativeApi.llama_state_load_file(Context.NativeHandle, _pathSession, session_tokens, (ulong)Context.ContextSize, out var n_token_count_out))
                 {
+                    // Log an error if the session file could not be loaded.
                     _logger?.LogError($"[LLamaExecutor] Failed to load session file {filename}");
+                    // Throw an exception indicating the session load failure.
                     throw new RuntimeError($"Failed to load session file {_pathSession}");
                 }
-                // Retain only the tokens that were loaded successfully.
+                // Retain only the tokens that were successfully loaded.
                 _session_tokens = session_tokens.Take((int)n_token_count_out).ToList();
+                // Log the number of tokens loaded from the session.
                 _logger?.LogInformation($"[LLamaExecutor] Loaded a session with prompt size of {session_tokens.Length} tokens");
             }
             else
             {
+                // Log a warning if the session file does not exist.
                 _logger?.LogWarning("[LLamaExecutor] Session file does not exist, will create");
             }
 
-            // Initialize the count of matching tokens between session and prompt.
+            // Initialize the count of matching tokens between the session and the current prompt.
             _n_matching_session_tokens = 0;
-            // If there are any session tokens loaded, try to match them with the current input tokens.
+            // If session tokens exist, attempt to match them with the current input tokens.
             if (_session_tokens.Count > 0)
             {
                 foreach (var id in _session_tokens)
                 {
-                    // If we've exhausted the current input tokens or the tokens do not match, break out.
+                    // Break if we've processed all current input tokens or if a token doesn't match.
                     if (_n_matching_session_tokens >= _embed_inps.Count || id != _embed_inps[_n_matching_session_tokens])
                     {
                         break;
                     }
-                    // Increase the count of matching session tokens.
+                    // Increase the matching token count.
                     _n_matching_session_tokens++;
                 }
-                // Log details based on how many tokens match the current prompt.
+                // Log based on the degree of match between session tokens and the prompt.
                 if (_n_matching_session_tokens >= _embed_inps.Count)
                 {
                     _logger?.LogInformation("[LLamaExecutor] Session file has exact match for prompt!");
@@ -181,7 +198,7 @@ namespace LLama
                 }
             }
 
-            // Return the executor instance for method chaining.
+            // Return this instance to allow method chaining.
             return this;
         }
 
@@ -192,60 +209,60 @@ namespace LLama
         /// <param name="filename">The path to the file where the session should be saved.</param>
         public void SaveSessionFile(string filename)
         {
-            // Convert the session tokens to an array.
+            // Convert the session tokens list to an array.
             var session_token_array = _session_tokens.ToArray();
-            // Use the native API to save the session state to file.
+            // Use the native API to save the session state (KV cache) to the specified file.
             NativeApi.llama_state_save_file(Context.NativeHandle, filename, session_token_array, (ulong)session_token_array.Length);
         }
 
         /// <summary>
         /// Handles the case when the model runs out of context.
-        /// It retains some tokens from the original prompt and recomputes logits in batches.
+        /// It retains a portion of the original prompt tokens and recomputes logits in batches.
         /// </summary>
-        /// <param name="tokensToKeep">The number of tokens from the prompt to keep.</param>
+        /// <param name="tokensToKeep">The number of prompt tokens to retain.</param>
         protected virtual void HandleRunOutOfContext(int tokensToKeep)
         {
-            // Calculate how many tokens beyond the ones to keep have been processed.
+            // Calculate the number of tokens beyond the tokens to keep that have been processed.
             int n_left = _pastTokensCount - tokensToKeep;
-            // Determine how many tokens to discard (half of the remaining tokens).
+            // Determine the number of tokens to discard (using half of the remaining tokens).
             int n_discard = n_left / 2;
 
             // Remove the key-value cache entries for tokens in the range [tokensToKeep, tokensToKeep + n_discard).
             NativeApi.llama_kv_cache_seq_rm(Context.NativeHandle, LLamaSeqId.Zero, tokensToKeep, tokensToKeep + n_discard);
-            // Re-index the remaining cache entries to account for the discarded tokens.
+            // Adjust the indices of the remaining cache entries to account for the discarded tokens.
             NativeApi.llama_kv_cache_seq_add(Context.NativeHandle, LLamaSeqId.Zero, tokensToKeep + n_discard, _pastTokensCount, -n_discard);
 
-            // Update the count of past tokens.
+            // Update the past tokens count by subtracting the number of discarded tokens.
             _pastTokensCount -= n_discard;
-            // Once context is reduced, stop saving the session.
+            // Clear the session file path once context is reduced (stop saving session state).
             _pathSession = string.Empty;
         }
 
         /// <summary>
         /// Attempts to reuse a matching prefix from the session file.
-        /// This reduces computation by reusing previously computed logits.
+        /// Reusing previously computed logits reduces computation if parts of the prompt match the session.
         /// </summary>
         protected virtual void TryReuseMatchingPrefix()
         {
-            // If there are still session tokens that haven't been consumed...
+            // Only proceed if there are session tokens that haven't been consumed.
             if (_n_session_consumed < _session_tokens.Count)
             {
-                int i = 0;
-                // Iterate through the current embeds.
+                int i = 0;  // Initialize an index to track matching tokens.
+                // Iterate over tokens in the _embeds list.
                 for (; i < _embeds.Count; i++)
                 {
                     // If a token does not match the corresponding session token...
                     if (_embeds[i] != _session_tokens[_n_session_consumed])
                     {
-                        // Truncate the session tokens to only the matching part.
+                        // Truncate the session tokens list to only the matched portion.
                         _session_tokens = _session_tokens.Take(_n_session_consumed).ToList();
                         break;
                     }
-                    // Increase the count of past tokens and session tokens consumed.
+                    // Increase both the count of past tokens and the session tokens consumed.
                     _pastTokensCount++;
                     _n_session_consumed++;
 
-                    // If we've consumed all session tokens, adjust the index and break.
+                    // If all session tokens have been consumed, adjust the index and exit the loop.
                     if (_n_session_consumed >= _session_tokens.Count)
                     {
                         i++;
@@ -253,7 +270,7 @@ namespace LLama
                     }
                 }
 
-                // Remove the tokens that were successfully matched from the embeds list.
+                // Remove the matching tokens from the _embeds list.
                 if (i > 0)
                 {
                     _embeds.RemoveRange(0, i);
@@ -262,82 +279,82 @@ namespace LLama
         }
 
         /// <summary>
-        /// Decide whether to continue the generation loop.
-        /// This is implemented by derived classes.
+        /// Abstract method to decide whether to continue the generation loop.
+        /// This is implemented by derived classes based on mode (e.g., instruct or interactive).
         /// </summary>
         /// <param name="args">Inference state arguments (e.g., remaining tokens).</param>
-        /// <returns>A task that resolves to a boolean indicating whether to continue.</returns>
+        /// <returns>A Task that resolves to a boolean indicating whether to continue generation.</returns>
         protected abstract Task<bool> GetLoopCondition(InferStateArgs args);
 
         /// <summary>
-        /// Preprocess the inputs before inference.
-        /// This method is implemented by derived classes (e.g., interactive, instruct modes).
+        /// Abstract method to preprocess the inputs before inference.
+        /// Derived classes implement this to tokenize and prepare the prompt or continuation.
         /// </summary>
         /// <param name="text">The input prompt (or null for continuation).</param>
-        /// <param name="args">Inference state arguments to update.</param>
+        /// <param name="args">Inference state arguments to be updated.</param>
         protected abstract Task PreprocessInputs(string? text, InferStateArgs args);
 
         /// <summary>
-        /// Do post processing after inference.
-        /// For example, decide whether generation should stop or if additional output is needed.
+        /// Abstract method for post-processing after inference.
+        /// Derived classes implement this to decide whether generation should stop or if extra output is needed.
         /// </summary>
-        /// <param name="inferenceParams">The inference parameters.</param>
+        /// <param name="inferenceParams">Parameters controlling sampling behavior.</param>
         /// <param name="args">Inference state arguments.</param>
         /// <returns>
-        /// A task that resolves to a tuple:
-        ///   - bool: whether to break generation.
-        ///   - IReadOnlyList&lt;string&gt;: any extra outputs to yield.
+        /// A Task that resolves to a tuple:
+        ///   - bool: indicating whether to break generation.
+        ///   - IReadOnlyList&lt;string&gt;: any extra output strings to yield.
         /// </returns>
         protected abstract Task<(bool, IReadOnlyList<string>)> PostProcess(IInferenceParams inferenceParams, InferStateArgs args);
 
         /// <summary>
-        /// The core inference logic.
-        /// This method is responsible for generating tokens and updating state.
+        /// Abstract method for the core inference logic.
+        /// Responsible for generating tokens and updating the internal state.
         /// </summary>
-        /// <param name="inferenceParams">The parameters controlling inference (e.g., sampling settings).</param>
+        /// <param name="inferenceParams">Parameters controlling sampling and decoding.</param>
         /// <param name="args">Inference state arguments.</param>
         protected abstract Task InferInternal(IInferenceParams inferenceParams, InferStateArgs args);
 
         /// <summary>
-        /// Save the current state to a file.
-        /// Implemented by derived classes.
+        /// Abstract method to save the current state to a file.
+        /// Derived classes implement this to serialize and write state data.
         /// </summary>
-        /// <param name="filename">The path to the file where state should be saved.</param>
+        /// <param name="filename">The file path to save the state.</param>
         public abstract Task SaveState(string filename);
 
         /// <summary>
-        /// Get the current state data.
-        /// Implemented by derived classes.
+        /// Abstract method to retrieve the current state data.
+        /// Derived classes implement this to return an object representing the state.
         /// </summary>
-        /// <returns>An object representing the current state.</returns>
+        /// <returns>An object containing the current state.</returns>
         public abstract ExecutorBaseState GetStateData();
 
         /// <summary>
-        /// Load the state from the provided data.
-        /// Implemented by derived classes.
+        /// Abstract method to load state from the provided state data.
+        /// Derived classes implement this to restore internal state.
         /// </summary>
         /// <param name="data">State data to load.</param>
         public abstract Task LoadState(ExecutorBaseState data);
 
         /// <summary>
-        /// Load the state from a file.
-        /// Implemented by derived classes.
+        /// Abstract method to load state from a file.
+        /// Derived classes implement this to deserialize state data from disk.
         /// </summary>
-        /// <param name="filename">The path to the file containing the state.</param>
+        /// <param name="filename">The file path containing the state.</param>
         public abstract Task LoadState(string filename);
 
         /// <summary>
-        /// Execute the inference asynchronously.
+        /// Executes the inference asynchronously.
         /// This method yields output tokens (as strings) as they are generated.
         /// </summary>
         /// <param name="text">
         /// The prompt to begin inference. If null, generation continues from the current state.
         /// </param>
         /// <param name="inferenceParams">
-        /// Parameters controlling inference (if not provided, defaults are used).
+        /// Parameters controlling inference (if null, defaults are used).
         /// </param>
         /// <param name="cancellationToken">
-        /// A token to monitor for cancellation requests.
+        /// A token to observe for cancellation requests.
         /// </param>
         /// <returns>An asynchronous stream of generated output strings.</returns>
         public virtual async IAsyncEnumerable<string> InferAsync(
@@ -345,22 +362,21 @@ namespace LLama
             IInferenceParams? inferenceParams = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            // Check if cancellation was already requested.
+            // Check for immediate cancellation.
             cancellationToken.ThrowIfCancellationRequested();
-            // Use provided inference parameters or create defaults.
+            // Use provided inference parameters or create default ones.
             inferenceParams ??= new InferenceParams();
 
             // Initialize the state arguments for this inference run.
             var args = new InferStateArgs
             {
-                // Copy the anti-prompts from the inference parameters.
+                // Copy the anti-prompts from inference parameters.
                 Antiprompts = new List<string>(inferenceParams.AntiPrompts),
                 // Set the token budget.
                 RemainedTokens = inferenceParams.MaxTokens,
                 ReturnValue = false,
                 WaitForInput = false,
-                // Determine whether to save session (if a session file exists and the session tokens
-                // do not completely match the input tokens).
+                // Determine whether to save the session based on session file and matching tokens.
                 NeedToSaveSession = !string.IsNullOrEmpty(_pathSession) && _n_matching_session_tokens < _embed_inps.Count
             };
 
@@ -370,33 +386,34 @@ namespace LLama
             // Main generation loop.
             while (await GetLoopCondition(args))
             {
-                // Respect cancellation requests.
+                // Check if cancellation has been requested.
                 if (cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
-                // Perform inference (e.g., decoding, sampling) and update internal state.
+                // Perform the core inference, which decodes and samples tokens.
                 await InferInternal(inferenceParams, args);
 
-                // If new tokens were generated (ReturnValue flag is set)...
+                // If new tokens have been generated (flag is set)...
                 if (args.ReturnValue)
                 {
-                    // Add the new tokens to the streaming decoder.
+                    // Add the newly generated tokens to the streaming decoder.
                     _decoder.AddRange(_embeds);
                     // Yield the current decoded string.
                     yield return _decoder.Read();
                 }
 
-                // Post-process to decide if generation should break or if extra outputs should be emitted.
+                // Post-process to decide whether generation should stop or extra outputs should be emitted.
                 var (breakGeneration, extraOutputs) = await PostProcess(inferenceParams, args);
                 if (extraOutputs is { Count: > 0 })
                 {
+                    // Yield any extra output strings.
                     foreach (var item in extraOutputs)
                     {
                         yield return item;
                     }
                 }
-                // If instructed to break generation, exit the loop.
+                // Break out of the loop if instructed.
                 if (breakGeneration)
                 {
                     break;
@@ -409,7 +426,7 @@ namespace LLama
         /// without generating any new tokens. This can reduce latency when the user eventually inputs text.
         /// </summary>
         /// <param name="prompt">The prompt to prefill.</param>
-        /// <returns>A task representing the asynchronous prefill operation.</returns>
+        /// <returns>A Task representing the asynchronous prefill operation.</returns>
         public virtual async Task PrefillPromptAsync(string prompt)
         {
             // Create inference parameters with zero tokens to generate.
@@ -429,11 +446,11 @@ namespace LLama
 
             // Preprocess the prompt.
             await PreprocessInputs(prompt, args);
-            // First inference pass: adds the prompt to the _embeds.
+            // First inference pass: adds the prompt to the embeds.
             await InferInternal(inferenceParams, args);
             // Second inference pass: processes the prompt through decode (updates KV cache).
             await InferInternal(inferenceParams, args);
-        }   
+        }
 
         /// <summary>
         /// Internal class holding state arguments used during a single inference run.
@@ -441,11 +458,11 @@ namespace LLama
         protected class InferStateArgs
         {
             /// <summary>
-            /// A list of antiprompt strings. These are used to signal when to stop or wait for input.
+            /// A list of antiprompt strings used to determine when to stop or wait for input.
             /// </summary>
             public IList<string>? Antiprompts { get; set; }
             /// <summary>
-            /// The remaining number of tokens allowed to be generated (n_remain).
+            /// The remaining number of tokens allowed to be generated.
             /// </summary>
             public int RemainedTokens { get; set; }
             /// <summary>
@@ -509,7 +526,7 @@ namespace LLama
             [JsonPropertyName("last_tokens_maximum_count")]
             public int LastTokensCapacity { get; set; }
 
-            // Optionally, the Mirostat mu parameter (if using Mirostat sampling).
+            // Optionally, the Mirostat mu parameter if using Mirostat sampling.
             [JsonPropertyName("mirostat_mu")]
             public float? MirostatMu { get; set; }
         }
