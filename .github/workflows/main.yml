@@ -21,7 +21,7 @@ jobs:
             os: ubuntu-latest
             config: release
           - build: osx-release
-            os: macos-14 # Binaries are built for macOS 15, need matching runner
+            os: macos-14
             config: release            
           - build: windows-release
             os: windows-2022
