@@ -20,8 +20,8 @@ jobs:
           - build: linux-release
             os: ubuntu-latest
             config: release
-          - build: osx-release  
-            os: macos-14 # https://github.blog/changelog/2024-01-30-github-actions-introducing-the-new-m1-macos-runner-available-to-open-source/
+          - build: osx-release
+            os: macos-15 # Binaries are built for macOS 15, need matching runner
             config: release            
           - build: windows-release
             os: windows-2022
