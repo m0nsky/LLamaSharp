@@ -59,6 +59,26 @@ jobs:
       run: dotnet restore LLamaSharp.sln
     - name: Build
       run: dotnet build LLamaSharp.sln -c ${{ matrix.config }} --no-restore
+    - name: Fix macOS dylib rpaths
+      if: ${{ matrix.os == 'macos-14' }}
+      run: |
+        # The dylibs are built with @rpath pointing to the build machine's directory.
+        # We need to add @loader_path to the rpath so dependencies are found in the same directory.
+        echo "Fixing rpaths for osx-arm64 dylibs..."
+        for dylib in LLama.Unittest/bin/Release/net8.0/runtimes/osx-arm64/native/*.dylib; do
+          echo "Adding @loader_path rpath to: $dylib"
+          install_name_tool -add_rpath @loader_path "$dylib" 2>/dev/null || true
+        done
+        echo "Fixing rpaths for osx-x64 dylibs..."
+        for dylib in LLama.Unittest/bin/Release/net8.0/runtimes/osx-x64/native/*.dylib; do
+          echo "Adding @loader_path rpath to: $dylib"
+          install_name_tool -add_rpath @loader_path "$dylib" 2>/dev/null || true
+        done
+        for dylib in LLama.Unittest/bin/Release/net8.0/runtimes/osx-x64/native/rosetta2/*.dylib; do
+          echo "Adding @loader_path rpath to: $dylib"
+          install_name_tool -add_rpath @loader_path "$dylib" 2>/dev/null || true
+        done
+        echo "Done fixing rpaths"
     - name: Debug - List extracted deps (macOS)
       if: ${{ matrix.os == 'macos-14' }}
       run: |
