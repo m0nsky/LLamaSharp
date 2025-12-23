@@ -26,13 +26,16 @@ namespace LLama.Native
             }
             catch (DllNotFoundException)
             {
-                throw new RuntimeError("The native library cannot be correctly loaded. It could be one of the following reasons: \n" +
-                    "1. No LLamaSharp backend was installed. Please search LLamaSharp.Backend and install one of them. \n" +
-                    "2. You are using a device with only CPU but installed cuda backend. Please install cpu backend instead. \n" +
-                    "3. One of the dependency of the native library is missed. Please use `ldd` on linux, `dumpbin` on windows and `otool`" +
-                    "to check if all the dependency of the native library is satisfied. Generally you could find the libraries under your output folder.\n" +
-                    "4. Try to compile llama.cpp yourself to generate a libllama library, then use `LLama.Native.NativeLibraryConfig.WithLibrary` " +
-                    "to specify it at the very beginning of your code. For more information about compilation, please refer to LLamaSharp repo on github.\n");
+                // throw new RuntimeError("The native library cannot be correctly loaded. It could be one of the following reasons: \n" +
+                //     "1. No LLamaSharp backend was installed. Please search LLamaSharp.Backend and install one of them. \n" +
+                //     "2. You are using a device with only CPU but installed cuda backend. Please install cpu backend instead. \n" +
+                //     "3. One of the dependency of the native library is missed. Please use `ldd` on linux, `dumpbin` on windows and `otool`" +
+                //     "to check if all the dependency of the native library is satisfied. Generally you could find the libraries under your output folder.\n" +
+                //     "4. Try to compile llama.cpp yourself to generate a libllama library, then use `LLama.Native.NativeLibraryConfig.WithLibrary` " +
+                //     "to specify it at the very beginning of your code. For more information about compilation, please refer to LLamaSharp repo on github.\n");
+                
+                // Expose the original error
+                throw;
             }
 
             // Now that the "loaded" flag is set configure logging in llama.cpp
