@@ -1,6 +1,5 @@
 name: Unit Test
 on:
-  workflow_dispatch:  # Temporary: manual trigger for debugging OSX issue
   push:
     branches: [master]
   pull_request:
