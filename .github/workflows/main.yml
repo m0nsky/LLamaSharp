@@ -62,17 +62,28 @@ jobs:
     - name: Debug - List extracted deps (macOS)
       if: ${{ matrix.os == 'macos-14' }}
       run: |
-        echo "=== Contents of LLama/runtimes/deps/ ==="
-        find LLama/runtimes/deps -type f 2>/dev/null || echo "deps folder not found or empty"
-        echo ""
         echo "=== Contents of LLama/runtimes/deps/osx-arm64/ ==="
         ls -la LLama/runtimes/deps/osx-arm64/ 2>/dev/null || echo "osx-arm64 folder not found"
         echo ""
-        echo "=== Test output runtimes folder ==="
-        find LLama.Unittest/bin -name "*.dylib" -type f 2>/dev/null || echo "No dylib files found in test output"
+        echo "=== Test output osx-arm64 native folder ==="
+        ls -la LLama.Unittest/bin/Release/net8.0/runtimes/osx-arm64/native/ 2>/dev/null || echo "folder not found"
         echo ""
-        echo "=== Full test output structure ==="
-        ls -laR LLama.Unittest/bin/${{ matrix.config }}/net8.0/runtimes/ 2>/dev/null || echo "runtimes folder not found in test output"
+        echo "=== Check libllama.dylib dependencies (otool -L) ==="
+        otool -L LLama.Unittest/bin/Release/net8.0/runtimes/osx-arm64/native/libllama.dylib 2>/dev/null || echo "otool failed"
+        echo ""
+        echo "=== Check libggml-metal.dylib dependencies ==="
+        otool -L LLama.Unittest/bin/Release/net8.0/runtimes/osx-arm64/native/libggml-metal.dylib 2>/dev/null || echo "otool failed"
+        echo ""
+        echo "=== Check file architecture ==="
+        file LLama.Unittest/bin/Release/net8.0/runtimes/osx-arm64/native/*.dylib 2>/dev/null || echo "file command failed"
+        echo ""
+        echo "=== Check code signature ==="
+        codesign -vv LLama.Unittest/bin/Release/net8.0/runtimes/osx-arm64/native/libllama.dylib 2>&1 || echo "codesign check done"
+        echo ""
+        echo "=== Try loading library with dlopen (verbose) ==="
+        cd LLama.Unittest/bin/Release/net8.0
+        DYLD_PRINT_LIBRARIES=1 python3 -c "import ctypes; ctypes.CDLL('runtimes/osx-arm64/native/libllama.dylib')" 2>&1 || echo "dlopen test completed"
+        cd -
     - name: Test
       run: dotnet test LLamaSharp.sln -c ${{ matrix.config }} -l "console;verbosity=detailed" --diag:logs/log.txt --filter Category!=NoCI
     - name: Upload artifacts
