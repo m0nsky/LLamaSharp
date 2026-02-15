@@ -52,6 +52,11 @@ jobs:
       with:
         key: "unit_test_models"
         path: LLama.Unittest/Models
+    - name: Cache native binaries
+      uses: actions/cache@v4
+      with:
+        key: "native_binaries_${{ hashFiles('LLama/LLamaSharp.csproj') }}"
+        path: LLama/runtimes
     #  workaround for actions/setup-dotnet#155
     - name: Clear package cache
       run: dotnet clean LLamaSharp.sln && dotnet nuget locals all --clear
