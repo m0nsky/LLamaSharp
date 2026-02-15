@@ -75,14 +75,19 @@
   <Target Name="UnzipReleaseBinaries" DependsOnTargets="DownloadReleaseBinaries" AfterTargets="CheckReleaseBinaries" Condition="'$(SkipDownloadReleaseBinaries)' != 'true'">
 	<Message Importance="High" Text="Unzip '$(BinaryReleaseId)/deps.zip'" />
 	<Unzip SourceFiles="runtimes/deps.zip" DestinationFolder="runtimes/deps/" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Include="*.dll;*.so;*.dylib;*.metal;" />
+	<WriteLinesToFile
+		File="runtimes/release_id.txt"
+		Lines="$(BinaryReleaseId)"
+		Overwrite="true"
+    />
   </Target>
-    
+
   <Target Name="CheckReleaseBinaries">
-    <!-- First, we read the previous binary release id from disk -->    
+    <!-- First, we read the previous binary release id from disk -->
     <ReadLinesFromFile File="runtimes/release_id.txt">
 		<Output TaskParameter="Lines" ItemName="PreviousBinaryReleaseId" />
     </ReadLinesFromFile>
-        
+
     <!-- If the previous binary release id is the same as the current one (which we define at the top of this file), we skip the download -->
     <PropertyGroup>
 		<SkipDownloadReleaseBinaries Condition="'%(PreviousBinaryReleaseId.Identity)' == '$(BinaryReleaseId)'">true</SkipDownloadReleaseBinaries>
