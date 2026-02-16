@@ -56,6 +56,13 @@ public static class LLamaParamsFit
         using var modelParamsDisposer = ((IModelParams)@params).ToLlamaModelParams(out var nativeModelParams);
         ((IContextParams)@params).ToLlamaContextParams(out var nativeContextParams);
 
+        // llama_params_fit only adjusts parameters that are at their llama.cpp default values.
+        // ToLlamaModelParams applies LLamaSharp-specific defaults (e.g., GpuLayerCount=20 → n_gpu_layers=20)
+        // which would all look "user-set" to the fit function. Reset fields to llama.cpp defaults
+        // so the fit function is free to optimize them.
+        var defaults = LLamaModelParams.Default();
+        nativeModelParams.n_gpu_layers = defaults.n_gpu_layers;
+
         // Call the native function
         var status = FitNative(
             @params.ModelPath,

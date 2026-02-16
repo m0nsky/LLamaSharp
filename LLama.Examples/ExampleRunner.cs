@@ -38,6 +38,7 @@ public class ExampleRunner
         { "Batched Executor: Beam Search", BatchedExecutorBeamSearch.Run },
         { "Custom Sampling Pipeline", CustomSampler.Run },
         { "Speech Chat: Integration with Whisper.net", SpeechChat.Run },
+        { "Params Fit: Fit model to device memory", ParamsFitExample.Run },
         { "Exit", () => { Environment.Exit(0); return Task.CompletedTask; } }
     };
 
