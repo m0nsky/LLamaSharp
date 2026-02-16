@@ -41,6 +41,13 @@ namespace LLama.Native
         public static extern long llama_max_parallel_sequences();
 
         /// <summary>
+        /// Maximum number of tensor buffer type overrides
+        /// </summary>
+        /// <returns></returns>
+        [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern long llama_max_tensor_buft_overrides();
+
+        /// <summary>
         /// Check if memory mapping is supported
         /// </summary>
         /// <returns></returns>
@@ -71,6 +78,33 @@ namespace LLama.Native
         [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool llama_supports_rpc();
+
+        /// <summary>
+        /// Fits model and context parameters to free device memory (assumes system memory is unlimited).
+        /// Only parameters that have the same value as in <see cref="LLamaModelParams.Default"/> are modified,
+        /// with the exception of the context size which is modified if and only if equal to 0.
+        /// <br/>
+        /// This function is NOT thread safe because it modifies the global llama logger state.
+        /// </summary>
+        /// <param name="path_model">Path to the GGUF model file</param>
+        /// <param name="mparams">Model parameters to adjust (modified in place)</param>
+        /// <param name="cparams">Context parameters to adjust (modified in place)</param>
+        /// <param name="tensor_split">Writable buffer for tensor split, needs at least <see cref="llama_max_devices"/> elements</param>
+        /// <param name="tensor_buft_overrides">Writable buffer for overrides, needs at least <see cref="llama_max_tensor_buft_overrides"/> elements</param>
+        /// <param name="margins">Per-device margins of memory to leave free, in bytes (needs at least <see cref="llama_max_devices"/> elements)</param>
+        /// <param name="n_ctx_min">Minimum context size to set when trying to reduce memory use</param>
+        /// <param name="log_level">Minimum log level to print during fitting, lower levels go to debug log</param>
+        /// <returns>Status indicating success, failure, or error</returns>
+        [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern unsafe LLamaParamsFitStatus llama_params_fit(
+            string path_model,
+            ref LLamaModelParams mparams,
+            ref LLamaContextParams cparams,
+            float* tensor_split,
+            LLamaModelTensorBufferOverride* tensor_buft_overrides,
+            nuint* margins,
+            uint n_ctx_min,
+            LLamaLogLevel log_level);
 
         /// <summary>
         /// Initialize the llama + ggml backend. Call once at the start of the program.
