@@ -12,11 +12,10 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container || '' }}
     strategy:
       fail-fast: false
       matrix:
-        build: [linux-x64-cpu, windows-x64-cpu, macos-arm64-metal, linux-arm64-cpu, linux-musl-x64-cpu]
+        build: [linux-x64-cpu, windows-x64-cpu, macos-arm64-metal, linux-arm64-cpu]
         include:
           - build: linux-x64-cpu
             os: ubuntu-latest
@@ -34,11 +33,6 @@ jobs:
             os: ubuntu-24.04-arm
             config: release
             name: Linux ARM64 CPU
-          - build: linux-musl-x64-cpu
-            os: ubuntu-latest
-            config: release
-            name: Linux musl x64 CPU
-            container: mcr.microsoft.com/dotnet/sdk:9.0-alpine
     steps:
     - name: Free Disk Space (Ubuntu)
       if: ${{ matrix.build == 'linux-x64-cpu' || matrix.build == 'linux-arm64-cpu' }}
@@ -46,23 +40,8 @@ jobs:
       with:
         dotnet: false
 
-    - name: Install Alpine dependencies
-      if: ${{ matrix.build == 'linux-musl-x64-cpu' }}
-      run: |
-        apk add --no-cache git bash icu-libs libstdc++ libgomp
-        dotnet --list-runtimes
-        dotnet --list-sdks
-    - name: Install .NET 8.0 runtime (Alpine)
-      if: ${{ matrix.build == 'linux-musl-x64-cpu' }}
-      run: |
-        wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
-        chmod +x dotnet-install.sh
-        ./dotnet-install.sh --runtime dotnet --channel 8.0 --install-dir /usr/share/dotnet
-        rm dotnet-install.sh
-
     - uses: actions/checkout@v4
     - uses: actions/setup-dotnet@v4
-      if: ${{ matrix.build != 'linux-musl-x64-cpu' }}
       with:
         dotnet-version: |
           8.0.x
@@ -87,25 +66,6 @@ jobs:
       run: dotnet restore LLamaSharp.sln
     - name: Build
       run: dotnet build LLamaSharp.sln -c ${{ matrix.config }} --no-restore
-    - name: Create versioned soname symlinks (Alpine)
-      if: ${{ matrix.build == 'linux-musl-x64-cpu' }}
-      run: |
-        # musl's dlopen doesn't match already-loaded libraries by soname like glibc does.
-        # The native .so files have versioned sonames (e.g. libggml-base.so.0) in their ELF headers,
-        # but the shipped files are unversioned (libggml-base.so). Create .so.0 symlinks so musl
-        # can resolve the inter-library dependencies.
-        echo "Creating .so.0 symlinks for musl compatibility..."
-        find . -path "*/linux-musl-x64/native/*" -name "*.so" | while read lib; do
-          ln -sf "$(basename "$lib")" "${lib}.0"
-          echo "  ${lib} -> ${lib}.0"
-        done
-        # Verify all dependencies resolve
-        echo ""
-        echo "Verifying with ldd:"
-        find . -path "*/linux-musl-x64/native/*" -name "libllama.so" | while read lib; do
-          echo ">> ldd $lib"
-          ldd "$lib" 2>&1 || true
-        done
     - name: Test
       run: dotnet test LLamaSharp.sln -c ${{ matrix.config }} -l "console;verbosity=detailed" --diag:logs/log.txt --filter Category!=NoCI
     - name: Upload artifacts
