@@ -10,29 +10,36 @@ concurrency:
 
 jobs:
   build:
-    name: Test
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        build: [linux-release, windows-release, osx-release]
+        build: [linux-x64-cpu, windows-x64-cpu, macos-arm64-metal, linux-arm64-cpu]
         include:
-          - build: linux-release
-            os: ubuntu-latest
+          - build: linux-x64-cpu
+            os: ubuntu-24.04
             config: release
-          - build: osx-release  
-            os: macos-14 # https://github.blog/changelog/2024-01-30-github-actions-introducing-the-new-m1-macos-runner-available-to-open-source/
-            config: release            
-          - build: windows-release
+            name: Linux x64 CPU
+          - build: macos-arm64-metal
+            os: macos-14
+            config: release
+            name: macOS ARM64 Metal
+          - build: windows-x64-cpu
             os: windows-2022
             config: release
+            name: Windows x64 CPU
+          - build: linux-arm64-cpu
+            os: ubuntu-24.04-arm
+            config: release
+            name: Linux ARM64 CPU
     steps:
     - name: Free Disk Space (Ubuntu)
-      if: ${{ matrix.os == 'ubuntu-latest' }}
+      if: ${{ matrix.build == 'linux-x64-cpu' || matrix.build == 'linux-arm64-cpu' }}
       uses: jlumbroso/free-disk-space@v1.3.1
       with:
         dotnet: false
-  
+
     - uses: actions/checkout@v4
     - uses: actions/setup-dotnet@v4
       with:
@@ -65,4 +72,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         path: logs/
-        name: logs-${{ matrix.os }}
+        name: logs-${{ matrix.build }}
