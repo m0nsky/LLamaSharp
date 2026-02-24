@@ -18,7 +18,7 @@ jobs:
         build: [linux-x64-cpu, windows-x64-cpu, macos-arm64-metal, linux-arm64-cpu]
         include:
           - build: linux-x64-cpu
-            os: ubuntu-latest
+            os: ubuntu-24.04
             config: release
             name: Linux x64 CPU
           - build: macos-arm64-metal
