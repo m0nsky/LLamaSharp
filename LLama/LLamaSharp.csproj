@@ -62,7 +62,7 @@
 
   <PropertyGroup>
     <FirstTargetFramework Condition=" '$(TargetFrameworks)' == '' ">$(TargetFramework)</FirstTargetFramework>
-    <FirstTargetFramework Condition=" '$(FirstTargetFrameworks)' == '' ">$(TargetFrameworks.Split(';')[0])</FirstTargetFramework>
+    <FirstTargetFramework Condition=" '$(FirstTargetFramework)' == '' ">$(TargetFrameworks.Split(';')[0])</FirstTargetFramework>
   </PropertyGroup>
 
   <!-- When UnzipReleaseBinaries is called, this will run first, as UnzipReleaseBinaries depends on it (check DependsOnTargets of UnzipReleaseBinaries) -->
@@ -75,6 +75,11 @@
   <Target Name="UnzipReleaseBinaries" DependsOnTargets="DownloadReleaseBinaries" AfterTargets="CheckReleaseBinaries" Condition="'$(SkipDownloadReleaseBinaries)' != 'true'">
 	<Message Importance="High" Text="Unzip '$(BinaryReleaseId)/deps.zip'" />
 	<Unzip SourceFiles="runtimes/deps.zip" DestinationFolder="runtimes/deps/" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Include="*.dll;*.so;*.dylib;" />
+	<WriteLinesToFile
+		File="runtimes/release_id.txt"
+		Lines="$(BinaryReleaseId)"
+		Overwrite="true"
+	/>
   </Target>
     
   <Target Name="CheckReleaseBinaries">
@@ -85,12 +90,13 @@
         
     <!-- If the previous binary release id is the same as the current one (which we define at the top of this file), we skip the download -->
     <PropertyGroup>
-		<SkipDownloadReleaseBinaries Condition="'%(PreviousBinaryReleaseId.Identity)' == '$(BinaryReleaseId)'">true</SkipDownloadReleaseBinaries>
+		<SkipDownloadReleaseBinaries Condition="'%(PreviousBinaryReleaseId.Identity)' == '$(BinaryReleaseId)' AND Exists('runtimes/deps/')">true</SkipDownloadReleaseBinaries>
     </PropertyGroup>
   </Target>
 
-  <!-- This always gets called before the build -->
-  <Target Name="PrepareReleaseBinaries" BeforeTargets="DispatchToInnerBuilds;BeforeBuild">
+  <!-- This always gets called before the build, but only in the outer build (multi-TFM) or single-TFM builds.
+       Without this condition, each inner build (netstandard2.0, net8.0) would run in parallel and race on deps.zip. -->
+  <Target Name="PrepareReleaseBinaries" BeforeTargets="DispatchToInnerBuilds;BeforeBuild" Condition="'$(TargetFramework)' == '' OR '$(TargetFrameworks)' == ''">
     <MSBuild Projects="$(MSBuildProjectFile)" Targets="CheckReleaseBinaries" Properties="TargetFramework=$(FirstTargetFramework)" />
   </Target>
     
