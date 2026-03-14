@@ -101,7 +101,12 @@ public enum GGMLType
     GGML_TYPE_I32 = 18,
 
     /// <summary>
+    /// NVFP4 (4 blocks, E4M3 scale)
+    /// </summary>
+    GGML_TYPE_NVFP4 = 40,
+
+    /// <summary>
     /// The value of this entry is the count of the number of possible quant types.
     /// </summary>
-    GGML_TYPE_COUNT,
+    GGML_TYPE_COUNT = 41,
 }
