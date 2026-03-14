@@ -22,7 +22,7 @@
       With the higher-level APIs and RAG support, it's convenient to deploy LLM (Large Language Model) in your application with LLamaSharp.
     </Description>
     <PackageReleaseNotes>
-        Updated llama.cpp version to 506bb6e01009058f35558474cf987eeb56361782
+        Updated llama.cpp version to 73c9eb8ceda397b651dbb6661b2935f0283a2b1d
     </PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageOutputPath>packages</PackageOutputPath>
@@ -57,7 +57,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <BinaryReleaseId>ff4affb4c1aa7eb4_v3</BinaryReleaseId>
+    <BinaryReleaseId>73c9eb8ceda397b</BinaryReleaseId>
   </PropertyGroup>
 
   <PropertyGroup>
